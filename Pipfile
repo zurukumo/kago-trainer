@@ -9,6 +9,7 @@ questionary = "*"
 scikit-learn = "*"
 torch = "*"
 torchvision = "*"
+tqdm = "*"
 kago-utils = {file = "../kago-utils", editable = true}
 
 [dev-packages]

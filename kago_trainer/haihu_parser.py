@@ -1,12 +1,13 @@
 import os
 import re
-from typing import Any, Generator
+from typing import Generator
 
 import torch
 from kago_utils.hai import Hai136
 from kago_utils.hai_group import Hai34Group, Hai136Group
 from kago_utils.huuro import Ankan, Chii, Daiminkan, Kakan, Pon
 from kago_utils.shanten import Shanten
+from tqdm import tqdm
 
 from kago_trainer.huuro_parser import HuuroParser
 from kago_trainer.mode import Mode
@@ -19,6 +20,7 @@ class HaihuParser():
     mode: Mode
     max_case: int
     debug: bool
+    progress_bar: tqdm
 
     x: list[list[list[int]]]
     t: list[int]
@@ -41,7 +43,7 @@ class HaihuParser():
     who: int
 
     __slots__ = (
-        'count', 'mode', 'max_case', 'debug',
+        'count', 'mode', 'max_case', 'debug', 'progress_bar',
         'x', 't',
         'filename', 'ts', 'actions', 'action_i',
         'tehai', 'huuro', 'kawa', 'dora', 'riichi', 'kyoku', 'ten',
@@ -53,6 +55,7 @@ class HaihuParser():
         self.mode = mode
         self.max_case = max_case
         self.debug = debug
+        self.progress_bar = tqdm(total=self.max_case)
 
         self.x = []
         self.t = []
@@ -69,7 +72,7 @@ class HaihuParser():
         for filepath, filename in self.list_xml_files():
             self.filename = filename
             self.ts = -1
-            self.actions = self.parse_xml(filepath)
+            self.actions = self.parse_actions(filepath)
 
             for action_i, (elem, attr) in enumerate(self.actions):
                 self.action_i = action_i
@@ -113,14 +116,14 @@ class HaihuParser():
                 filepath = f'./haihus/xml{year}/{filename}'
                 yield filepath, filename
 
-    def parse_xml(self, filename: str) -> list[tuple[str, dict[str, str]]]:
+    def parse_actions(self, filename: str) -> list[tuple[str, dict[str, str]]]:
         with open(filename, 'r') as xml:
-            self.actions = []
+            actions = []
             for elem, attr in re.findall(r'<(.*?)[ /](.*?)/?>', xml.read()):
                 attr = dict(re.findall(r'\s?(.*?)="(.*?)"', attr))
-                self.actions.append((elem, attr))
+                actions.append((elem, attr))
 
-        return self.actions
+        return actions
 
     def url(self) -> str:
         return f'https://tenhou.net/0/?log={self.filename.replace('.xml', '')}&ts={self.ts}'
@@ -398,10 +401,9 @@ class HaihuParser():
         self.t.append(t)
 
         self.count += 1
+        self.progress_bar.update(1)
 
-        print(self.count, '/', self.max_case)
-
-    def parse_init_tag(self, attr: dict[str, Any]) -> None:
+    def parse_init_tag(self, attr: dict[str, str]) -> None:
         self.ts += 1
 
         self.tehai = [Hai136Group([]) for _ in range(4)]
@@ -465,7 +467,7 @@ class HaihuParser():
         if self.mode == Mode.RON_DAMINKAN_PON_CHII:
             self.sample_ron_daiminkan_pon_chii()
 
-    def parse_huuro_tag(self, attr: dict[str, Any]) -> None:
+    def parse_huuro_tag(self, attr: dict[str, str]) -> None:
         who = int(attr['who'])
         m = int(attr['m'])
         huuro = HuuroParser.from_haihu(m)
