@@ -1,9 +1,10 @@
 #!/usr/bin/python
 # coding: UTF-8
 
+import pickle
 import re
 import time
-import pickle
+
 import requests
 from agari import *
 
@@ -160,7 +161,8 @@ for m in range(0, 12):
                         print('自作', new_sc.get_ten(machi))
                         for i in range(55):
                             if new_sc.jokyo_yaku[i] + new_sc.bubun_yaku[i] + new_sc.zenbu_yaku[i] > 0:
-                                print(Agari.YAKU[i], new_sc.jokyo_yaku[i] + new_sc.bubun_yaku[i] + new_sc.zenbu_yaku[i])
+                                print(Agari.YAKU[i], new_sc.jokyo_yaku[i] +
+                                      new_sc.bubun_yaku[i] + new_sc.zenbu_yaku[i])
                         exit()
 
                     else:

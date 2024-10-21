@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch.optim.adam import Adam
 from torch.utils.data import DataLoader, TensorDataset, random_split
 
-from core.mode import Mode
+from kago_trainer.mode import Mode
 
 
 class MyModel(nn.Module):

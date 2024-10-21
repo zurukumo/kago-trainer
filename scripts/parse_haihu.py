@@ -1,7 +1,7 @@
 import questionary
 
-from core.haihu_parser import HaihuParser
-from core.mode import Mode
+from kago_trainer.haihu_parser import HaihuParser
+from kago_trainer.mode import Mode
 
 if __name__ == '__main__':
     mode = questionary.select('mode?', choices=[mode.value for mode in Mode]).ask()

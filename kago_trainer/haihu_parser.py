@@ -8,8 +8,8 @@ from kago_utils.hai_group import Hai34Group, Hai136Group
 from kago_utils.huuro import Ankan, Chii, Daiminkan, Kakan, Pon
 from kago_utils.shanten import Shanten
 
-from core.huuro_parser import HuuroParser
-from core.mode import Mode
+from kago_trainer.huuro_parser import HuuroParser
+from kago_trainer.mode import Mode
 
 
 class HaihuParser():
