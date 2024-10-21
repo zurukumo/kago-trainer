@@ -1,0 +1,11 @@
+__pycache__
+.DS_Store
+.venv
+*.code-workspace
+
+datasets/**/*.csv
+datasets/**/*.pt
+models/**/*.h5
+models/**/*.pth
+haihus/**/*.xml
+thesis

@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+numpy = "<2.0.0"
+questionary = "*"
+scikit-learn = "*"
+torch = "*"
+torchvision = "*"
+kago-utils = {file = "../kago-utils", editable = true}
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
+
+[scripts]
+parse = "python -m scripts.parse_haihu"
+train = "python -m scripts.train_haihu"
