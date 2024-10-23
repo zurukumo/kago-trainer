@@ -251,7 +251,7 @@ class HaihuParser():
             else:
                 planes.extend([[0] * 34 for _ in range(4)])
 
-        self.debug_print("手牌")
+        self.debug_print("純手牌")
         self.debug_planes(planes, 4)
         return planes
 
@@ -285,6 +285,21 @@ class HaihuParser():
 
         self.debug_print("副露")
         self.debug_planes(planes, 16)
+        return planes
+
+    def huuro_aka_to_plane(self) -> list[list[int]]:
+        # 全員の副露・赤牌(1plane * 4players)
+        planes: list[list[int]] = []
+        for i in range(4):
+            counter = [0] * 34
+            for huuro in self.huuro[i]:
+                for hai in huuro.hais:
+                    if hai.is_aka():
+                        counter[hai.to_hai34().id] += 1
+            planes.append(counter)
+
+        self.debug_print("副露・赤牌")
+        self.debug_planes(planes, 1)
         return planes
 
     def kawa_to_plane(self) -> list[list[int]]:
@@ -418,6 +433,7 @@ class HaihuParser():
         planes += self.jun_tehai_to_plane(who)
         planes += self.jun_tehai_aka_to_plane(who)
         planes += self.huuro_to_plane()
+        planes += self.huuro_aka_to_plane()
         planes += self.kawa_to_plane()
         planes += self.kawa_aka_to_plane()
         planes += self.last_dahai_to_plane()
