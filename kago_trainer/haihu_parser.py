@@ -351,6 +351,24 @@ class HaihuParser():
         self.debug_planes(planes, 4)
         return planes
 
+    def ten_to_plane(self) -> list[list[int]]:
+        # 点数(30planes * 4players)
+        planes: list[list[int]] = []
+        for i in range(4):
+            man = min(self.ten[i] // 100, 9)
+            sen = self.ten[i] % 100 // 10
+            hyaku = self.ten[i] % 10
+            for j in range(10):
+                planes.append([1] * 34 if j == man else [0] * 34)
+            for j in range(10):
+                planes.append([1] * 34 if j == sen else [0] * 34)
+            for j in range(10):
+                planes.append([1] * 34 if j == hyaku else [0] * 34)
+
+        self.debug_print("点数")
+        self.debug_planes(planes, 30)
+        return planes
+
     def position_to_plane(self, who: int) -> list[list[int]]:
         # 場所(4planes)
         planes: list[list[int]] = []
@@ -391,6 +409,7 @@ class HaihuParser():
         planes += self.dora_to_plane()
         planes += self.bakaze_to_plane()
         planes += self.kyoku_to_plane()
+        planes += self.ten_to_plane()
         planes += self.position_to_plane(who)
 
         # デバッグ時は入力を待つ
