@@ -273,17 +273,18 @@ class HaihuParser():
         return planes
 
     def huuro_to_plane(self) -> list[list[int]]:
-        # 全員の副露(4planes * 4players)
+        # 全員の副露(16planes * 4players)
         planes: list[list[int]] = []
         for i in range(4):
-            tmp = Hai136Group([])
-            for huuro in self.huuro[i]:
-                tmp += huuro.hais
-            counter = tmp.to_hai34_group().to_counter()
-            planes.extend(self.to_planes(counter, 4))
+            for j in range(4):
+                if j < len(self.huuro[i]):
+                    counter = self.huuro[i][j].hais.to_hai34_group().to_counter()
+                    planes.extend(self.to_planes(counter, 4))
+                else:
+                    planes.extend([[0] * 34 for _ in range(4)])
 
         self.debug_print("副露")
-        self.debug_planes(planes, 4)
+        self.debug_planes(planes, 16)
         return planes
 
     def kawa_to_plane(self) -> list[list[int]]:
