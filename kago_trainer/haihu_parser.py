@@ -256,7 +256,7 @@ class HaihuParser():
         return planes
 
     def jun_tehai_aka_to_plane(self, who: int) -> list[list[int]]:
-        # 全員の赤牌(1plane * 4players)
+        # 全員の純手牌・赤牌(1plane * 4players)
         planes: list[list[int]] = []
         for i in range(4):
             if i == who:
@@ -268,8 +268,22 @@ class HaihuParser():
             else:
                 planes.append([0] * 34)
 
-        self.debug_print("赤牌")
+        self.debug_print("純手牌・赤牌")
         self.debug_planes(planes, 1)
+        return planes
+
+    def huuro_to_plane(self) -> list[list[int]]:
+        # 全員の副露(4planes * 4players)
+        planes: list[list[int]] = []
+        for i in range(4):
+            tmp = Hai136Group([])
+            for huuro in self.huuro[i]:
+                tmp += huuro.hais
+            counter = tmp.to_hai34_group().to_counter()
+            planes.extend(self.to_planes(counter, 4))
+
+        self.debug_print("副露")
+        self.debug_planes(planes, 4)
         return planes
 
     def kawa_to_plane(self) -> list[list[int]]:
@@ -286,18 +300,18 @@ class HaihuParser():
         self.debug_planes(planes, 20)
         return planes
 
-    def huuro_to_plane(self) -> list[list[int]]:
-        # 全員の副露(4planes * 4players)
+    def kawa_aka_to_plane(self) -> list[list[int]]:
+        # 全員の河の赤牌(1plane * 4players)
         planes: list[list[int]] = []
         for i in range(4):
-            tmp = Hai136Group([])
-            for huuro in self.huuro[i]:
-                tmp += huuro.hais
-            counter = tmp.to_hai34_group().to_counter()
-            planes.extend(self.to_planes(counter, 4))
+            counter = [0] * 34
+            for hai in self.kawa[i]:
+                if hai.is_aka():
+                    counter[hai.to_hai34().id] += 1
+            planes.append(counter)
 
-        self.debug_print("副露")
-        self.debug_planes(planes, 4)
+        self.debug_print("河・赤牌")
+        self.debug_planes(planes, 1)
         return planes
 
     def last_dahai_to_plane(self) -> list[list[int]]:
@@ -404,6 +418,7 @@ class HaihuParser():
         planes += self.jun_tehai_aka_to_plane(who)
         planes += self.huuro_to_plane()
         planes += self.kawa_to_plane()
+        planes += self.kawa_aka_to_plane()
         planes += self.last_dahai_to_plane()
         planes += self.riichi_to_plane()
         planes += self.dora_to_plane()
