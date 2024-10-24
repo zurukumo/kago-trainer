@@ -63,12 +63,12 @@ class HaihuTrainer:
 
         # モデル、最適化手法、損失関数の設定
         self.model = MyModel(x.shape[1], self.n_output)
-        optimizer = Adam(self.model.parameters(), lr=0.001)
-        criterion = nn.CrossEntropyLoss()
+        self.optimizer = Adam(self.model.parameters(), lr=0.001)
+        self.criterion = nn.CrossEntropyLoss()
 
         for epoch in range(n_epoch):
-            train_loss = self.train_model(optimizer, criterion)
-            accuracy, test_loss = self.evaluate_model(criterion)
+            train_loss = self.train_model()
+            accuracy, test_loss = self.evaluate_model()
             print(', '.join([
                 f'Epoch {epoch+1}/{n_epoch}',
                 f'Train Loss: {train_loss:.4f}',
@@ -88,20 +88,20 @@ class HaihuTrainer:
         return dataset['x'], dataset['t']
 
     # 学習用関数
-    def train_model(self, optimizer, criterion):
+    def train_model(self):
         self.model.train()
         running_loss = 0.0
         for inputs, labels in self.train_loader:
-            optimizer.zero_grad()
+            self.optimizer.zero_grad()
             outputs = self.model(inputs)
-            loss = criterion(outputs, labels.squeeze())
+            loss = self.criterion(outputs, labels.squeeze())
             loss.backward()
-            optimizer.step()
+            self.optimizer.step()
             running_loss += loss.item()
         return running_loss / len(self.train_loader)
 
     # 評価用関数
-    def evaluate_model(self, criterion):
+    def evaluate_model(self):
         self.model.eval()
         correct = 0
         total = 0
@@ -109,7 +109,7 @@ class HaihuTrainer:
         with torch.no_grad():
             for inputs, labels in self.test_loader:
                 outputs = self.model(inputs)
-                loss = criterion(outputs, labels.squeeze())
+                loss = self.criterion(outputs, labels.squeeze())
                 running_loss += loss.item()
                 _, predicted = torch.max(outputs, 1)
                 total += labels.size(0)
