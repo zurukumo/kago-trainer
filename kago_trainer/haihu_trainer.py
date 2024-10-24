@@ -54,15 +54,11 @@ class HaihuTrainer:
             case _:
                 raise ValueError('Invalid mode')
 
-        # テストデータの準備
-        x, t = self.prepare_data()
-        dataset = TensorDataset(x, t)
-        train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
-        self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        # データローダーの準備
+        self.prepare_data_loader()
 
         # モデル、最適化手法、損失関数の設定
-        self.model = MyModel(x.shape[1], self.n_output)
+        self.model = MyModel(self.n_channel, self.n_output)
         self.optimizer = Adam(self.model.parameters(), lr=0.001)
         self.criterion = nn.CrossEntropyLoss()
 
@@ -81,11 +77,22 @@ class HaihuTrainer:
         torch.save(self.model.state_dict(), os.path.join(current_dir, f'../models/{self.filename}.pth'))
         print(f'Model saved as {self.filename}_model.pth')
 
-    # データ準備関数
-    def prepare_data(self):
-        current_dir = os.path.dirname(__file__)
-        dataset = torch.load(os.path.join(current_dir, f'../datasets/{self.filename}.pt'), weights_only=True)
-        return dataset['x'], dataset['t']
+    def prepare_data_loader(self):
+        # シード値を固定する
+        torch.manual_seed(0)
+
+        # ファイル読み込み
+        dataset_path = os.path.join(os.path.dirname(__file__), f'../datasets/{self.mode.value}.pt')
+        dataset_dict = torch.load(dataset_path, weights_only=True)
+
+        # データセットの準備
+        dataset = TensorDataset(dataset_dict['x'], dataset_dict['t'])
+        train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
+        self.train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+        self.test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
+
+        # チャンネル数の設定
+        self.n_channel = dataset_dict['x'].shape[1]
 
     # 学習用関数
     def train_model(self):
