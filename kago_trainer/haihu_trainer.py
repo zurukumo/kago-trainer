@@ -2,36 +2,38 @@ import os
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.optim.adam import Adam
 from torch.utils.data import DataLoader, TensorDataset, random_split
 
 from kago_trainer.mode import Mode
 
 
-class MyModel(nn.Module):
-    def __init__(self, n_channel: int, n_output: int) -> None:
-        W = 34
-        super(MyModel, self).__init__()
-        self.conv1 = nn.Conv1d(in_channels=n_channel, out_channels=32, kernel_size=5, padding='same')
-        self.conv2 = nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, padding='same')
-        self.conv3 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=5, padding='same')
-        self.dropout = nn.Dropout(0.2)
-        self.fc1 = nn.Linear(128 * W, 128)
-        self.fc2 = nn.Linear(128, n_output)
+class ResidualBlock(nn.Module):
+    def __init__(self, channels):
+        super(ResidualBlock, self).__init__()
+        self.conv1 = nn.Conv1d(channels, channels, kernel_size=3, padding='same')
+        self.conv2 = nn.Conv1d(channels, channels, kernel_size=3, padding='same')
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = F.relu(self.conv1(x))
-        x = self.dropout(x)
-        x = F.relu(self.conv2(x))
-        x = self.dropout(x)
-        x = F.relu(self.conv3(x))
-        x = self.dropout(x)
-        x = torch.flatten(x, 1)
-        x = F.relu(self.fc1(x))
-        x = self.dropout(x)
-        x = F.softmax(self.fc2(x), dim=1)
-        return x
+    def forward(self, x):
+        residual = x  # 入力をそのまま保存 (残差)
+        out = self.conv1(x).relu()
+        out = self.conv2(out)
+        return (out + residual).relu()  # 残差接続で足し合わせる
+
+
+class MyModel(nn.Module):
+    def __init__(self, n_channel, n_output):
+        super(MyModel, self).__init__()
+        self.initial_conv = nn.Conv1d(n_channel, 256, kernel_size=3, padding='same')
+        self.blocks = nn.ModuleList([ResidualBlock(256) for _ in range(50)])
+        self.final_conv = nn.Conv1d(256, 1, kernel_size=3, padding='same')
+
+    def forward(self, x):
+        out = self.initial_conv(x).relu()
+        for block in self.blocks:
+            out = block(out)
+        out = self.final_conv(out).squeeze()
+        return out
 
 
 class HaihuTrainer:
