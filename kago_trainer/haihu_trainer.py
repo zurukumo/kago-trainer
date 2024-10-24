@@ -38,21 +38,8 @@ class MyModel(nn.Module):
 
 class HaihuTrainer:
     def __init__(self, mode: Mode, batch_size: int, n_epoch: int):
-        match mode:
-            case Mode.DAHAI:
-                self.n_output = 34
-                self.filename = 'dahai'
-            case Mode.RIICHI:
-                self.n_output = 2
-                self.filename = 'riichi'
-            case Mode.ANKAN:
-                self.n_output = 34
-                self.filename = 'ankan'
-            case Mode.RON_DAMINKAN_PON_CHII:
-                self.n_output = 7
-                self.filename = 'ron_daiminkan_pon_chii'
-            case _:
-                raise ValueError('Invalid mode')
+        self.mode = mode
+        self.batch_size = batch_size
 
         # データローダーの準備
         self.prepare_data_loader()
@@ -91,9 +78,6 @@ class HaihuTrainer:
         self.train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         self.test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
 
-        # チャンネル数の設定
-        self.n_channel = dataset_dict['x'].shape[1]
-
     # 学習用関数
     def train_model(self):
         self.model.train()
@@ -122,3 +106,21 @@ class HaihuTrainer:
                 total += labels.size(0)
                 correct += (predicted == labels.squeeze()).sum().item()
         return correct / total, running_loss / len(self.test_loader)
+
+    @property
+    def n_channel(self):
+        return self.train_loader.dataset[0][0].shape[0]
+
+    @property
+    def n_output(self):
+        match self.mode:
+            case Mode.DAHAI:
+                return 34
+            case Mode.RIICHI:
+                return 2
+            case Mode.ANKAN:
+                return 34
+            case Mode.RON_DAMINKAN_PON_CHII:
+                return 7
+            case _:
+                raise ValueError('Invalid mode')
