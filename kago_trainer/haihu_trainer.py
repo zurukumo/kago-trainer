@@ -1,3 +1,4 @@
+import datetime
 import os
 
 import torch
@@ -37,32 +38,51 @@ class MyModel(nn.Module):
 
 
 class HaihuTrainer:
-    def __init__(self, mode: Mode, batch_size: int, n_epoch: int):
+    def __init__(self, mode: Mode, batch_size: int, n_epoch: int, checkpoint_path: str | None):
         self.mode = mode
         self.batch_size = batch_size
+        self.n_epoch = n_epoch
+        self.initial_epoch = 0
+        self.logs = []
 
         # データローダーの準備
         self.prepare_data_loader()
 
-        # モデル、最適化手法、損失関数の設定
+        # モデルや最適化手法などの準備
         self.model = MyModel(self.n_channel, self.n_output)
         self.optimizer = Adam(self.model.parameters(), lr=0.001)
         self.criterion = nn.CrossEntropyLoss()
 
-        for epoch in range(n_epoch):
+        # チェックポイントが指定されている場合は読み込む
+        if checkpoint_path is not None:
+            checkpoint = torch.load(checkpoint_path, weights_only=True)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.initial_epoch += len(checkpoint['logs'])
+
+            self.logs = checkpoint['logs']
+            print('Checkpoint loaded.')
+            for log in self.logs:
+                self.print_log(log)
+            print("=============================")
+
+        for epoch in range(self.initial_epoch, self.initial_epoch + n_epoch):
             train_loss = self.train_model()
             accuracy, test_loss = self.evaluate_model()
-            print(', '.join([
-                f'Epoch {epoch+1}/{n_epoch}',
-                f'Train Loss: {train_loss:.4f}',
-                f'Test Loss: {test_loss:.4f}',
-                f'Accuracy: {accuracy*100:.2f}%'
-            ]))
+
+            log = {'epoch': epoch, 'train_loss': train_loss, 'test_loss': test_loss, 'accuracy': accuracy}
+            self.logs.append(log)
+            self.print_log(log)
 
         # モデルを保存
-        current_dir = os.path.dirname(__file__)
-        torch.save(self.model.state_dict(), os.path.join(current_dir, f'../models/{self.filename}.pth'))
-        print(f'Model saved as {self.filename}_model.pth')
+        model_path = os.path.join(os.path.dirname(__file__), f'../models/{self.model_name}.pt')
+        model_path = os.path.abspath(model_path)
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'logs': self.logs
+        }, model_path)
+        print(f'Model saved: {model_path}')
 
     def prepare_data_loader(self):
         # シード値を固定する
@@ -108,6 +128,11 @@ class HaihuTrainer:
         return correct / total, running_loss / len(self.test_loader)
 
     @property
+    def model_name(self):
+        dt = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+        return f'{self.mode.value}_{dt}'
+
+    @property
     def n_channel(self):
         return self.train_loader.dataset[0][0].shape[0]
 
@@ -124,3 +149,12 @@ class HaihuTrainer:
                 return 7
             case _:
                 raise ValueError('Invalid mode')
+
+    def print_log(self, log):
+        max_width = len(str(self.initial_epoch + self.n_epoch))
+        print(', '.join([
+            f'Epoch {log['epoch']+1:>{max_width}}/{self.initial_epoch + self.n_epoch}',
+            f'Train Loss: {log['train_loss']:.4f}',
+            f'Test Loss: {log['test_loss']:.4f}',
+            f'Accuracy: {log['accuracy']*100:.2f}%'
+        ]))
