@@ -3,8 +3,8 @@ import re
 from typing import Generator
 
 import torch
-from kago_utils.hai import Hai136
-from kago_utils.hai_group import Hai34Group, Hai136Group
+from kago_utils.hai import Hai
+from kago_utils.hai_group import HaiGroup
 from kago_utils.huuro import Ankan, Chii, Daiminkan, Kakan, Pon
 from kago_utils.shanten import Shanten
 from tqdm import tqdm
@@ -30,16 +30,16 @@ class HaihuParser():
     actions: list[tuple[str, dict[str, str]]]
     action_i: int
 
-    tehai: list[Hai136Group]
+    tehai: list[HaiGroup]
     huuro: list[list[Chii | Pon | Kakan | Daiminkan | Daiminkan]]
-    kawa: list[list[Hai136]]
-    dora: list[Hai136]
+    kawa: list[list[Hai]]
+    dora: list[Hai]
     riichi: list[bool]
     kyoku: int
     ten: list[int]
     last_teban: int | None
-    last_tsumo: Hai136 | None
-    last_dahai: Hai136 | None
+    last_tsumo: Hai | None
+    last_dahai: Hai | None
     who: int
 
     __slots__ = (
@@ -100,7 +100,7 @@ class HaihuParser():
 
                 # ドラ
                 elif elem == 'DORA':
-                    self.dora.append(Hai136(int(attr['hai'])))
+                    self.dora.append(Hai(int(attr['hai'])))
 
                 # 和了
                 elif elem == 'AGARI':
@@ -154,13 +154,16 @@ class HaihuParser():
         if self.riichi[who]:
             if self.last_tsumo is None:
                 return
-            if self.tehai[who].to_hai34_group().to_counter()[self.last_tsumo.to_hai34()] != 4:
+            if self.tehai[who].to_counter34()[self.last_tsumo.id // 4] != 4:
                 return
 
             # ツモ前
-            shanten1 = Shanten(self.tehai[who] - Hai136Group([self.last_tsumo]))
+            tehai1 = self.tehai[who] - self.last_tsumo
+            shanten1 = Shanten(tehai1)
             # 暗槓後
-            shanten2 = Shanten(self.tehai[who] - Hai34Group([self.last_tsumo] * 4))
+            base_id = self.last_tsumo.id - self.last_tsumo.id % 4
+            tehai2 = self.tehai[who] - HaiGroup.from_list136([base_id, base_id + 1, base_id + 2, base_id + 3])
+            shanten2 = Shanten(tehai2)
 
             if not (shanten1.shanten == shanten2.shanten == 0):
                 return
@@ -177,7 +180,7 @@ class HaihuParser():
         # 非リーチ中
         else:
             for i in range(34):
-                if self.tehai[who].to_hai34_group().to_counter()[i] != 4:
+                if self.tehai[who].to_counter34()[i] != 4:
                     continue
 
                 if next_elem == 'N':
@@ -224,7 +227,7 @@ class HaihuParser():
 
     def debug_planes(self, planes: list[list[int]], n_unit: int) -> None:
         for i, plane in enumerate(planes):
-            self.debug_print(i, Hai34Group.from_counter(plane).to_string())
+            self.debug_print(i, HaiGroup.from_counter34(plane).to_string())
             if i % n_unit == n_unit - 1:
                 if i == len(planes) - 1:
                     self.debug_print('')
@@ -246,7 +249,7 @@ class HaihuParser():
         planes: list[list[int]] = []
         for i in range(4):
             if i == who:
-                counter = self.tehai[i].to_hai34_group().to_counter()
+                counter = self.tehai[i].to_counter34()
                 planes.extend(self.to_planes(counter, 4))
             else:
                 planes.extend([[0] * 34 for _ in range(4)])
@@ -262,8 +265,8 @@ class HaihuParser():
             if i == who:
                 counter = [0] * 34
                 for hai in self.tehai[who].hais:
-                    if hai.is_aka():
-                        counter[hai.to_hai34().id] += 1
+                    if hai.color == 'aka':
+                        counter[hai.id//4] += 1
                 planes.append(counter)
             else:
                 planes.append([0] * 34)
@@ -278,7 +281,7 @@ class HaihuParser():
         for i in range(4):
             for j in range(4):
                 if j < len(self.huuro[i]):
-                    counter = self.huuro[i][j].hais.to_hai34_group().to_counter()
+                    counter = self.huuro[i][j].hais.to_counter34()
                     planes.extend(self.to_planes(counter, 4))
                 else:
                     planes.extend([[0] * 34 for _ in range(4)])
@@ -294,8 +297,8 @@ class HaihuParser():
             counter = [0] * 34
             for huuro in self.huuro[i]:
                 for hai in huuro.hais:
-                    if hai.is_aka():
-                        counter[hai.to_hai34().id] += 1
+                    if hai.color == "aka":
+                        counter[hai.id // 4] += 1
             planes.append(counter)
 
         self.debug_print("副露・赤牌")
@@ -308,7 +311,7 @@ class HaihuParser():
         for i in range(4):
             for j in range(20):
                 if j < len(self.kawa[i]):
-                    planes.append(Hai34Group([self.kawa[i][j].to_hai34()]).to_counter())
+                    planes.append(HaiGroup([self.kawa[i][j]]).to_counter34())
                 else:
                     planes.append([0] * 34)
 
@@ -322,8 +325,8 @@ class HaihuParser():
         for i in range(4):
             counter = [0] * 34
             for hai in self.kawa[i]:
-                if hai.is_aka():
-                    counter[hai.to_hai34().id] += 1
+                if hai.color == "aka":
+                    counter[hai.id // 4] += 1
             planes.append(counter)
 
         self.debug_print("河・赤牌")
@@ -335,7 +338,7 @@ class HaihuParser():
         planes: list[list[int]] = []
         for i in range(4):
             if self.last_dahai is not None and self.last_teban is not None and i == self.last_teban:
-                planes.append(Hai34Group([self.last_dahai.to_hai34()]).to_counter())
+                planes.append(HaiGroup([self.last_dahai]).to_counter34())
             else:
                 planes.append([0] * 34)
 
@@ -355,7 +358,7 @@ class HaihuParser():
 
     def dora_to_plane(self) -> list[list[int]]:
         # ドラ(4planes)
-        planes = self.to_planes(Hai136Group(self.dora).to_hai34_group().to_counter(), 4)
+        planes = self.to_planes(HaiGroup(self.dora).to_counter34(), 4)
 
         self.debug_print("ドラ")
         self.debug_planes(planes, 4)
@@ -457,7 +460,7 @@ class HaihuParser():
     def parse_init_tag(self, attr: dict[str, str]) -> None:
         self.ts += 1
 
-        self.tehai = [Hai136Group([]) for _ in range(4)]
+        self.tehai = [HaiGroup([]) for _ in range(4)]
         self.kawa = [[] for _ in range(4)]
         self.huuro = [[] for _ in range(4)]
         self.dora = []
@@ -468,12 +471,12 @@ class HaihuParser():
         # 配牌をパース
         for who in range(4):
             for hai in map(int, attr[f'hai{who}'].split(',')):
-                self.tehai[who] += Hai136(hai)
+                self.tehai[who] += Hai(hai)
 
         # 局数、本場、供託、ドラをパース
         kyoku, honba, kyotaku, _, _, dora = map(int, attr['seed'].split(','))
         self.kyoku = kyoku
-        self.dora.append(Hai136(dora))
+        self.dora.append(Hai(dora))
 
         # 点棒状況をパース
         for who, ten in enumerate(map(int, attr['ten'].split(','))):
@@ -486,7 +489,7 @@ class HaihuParser():
     def parse_tsumo_tag(self, elem: str) -> None:
         idx = {'T': 0, 'U': 1, 'V': 2, 'W': 3}
         who = idx[elem[0]]
-        hai = Hai136(int(elem[1:]))
+        hai = Hai(int(elem[1:]))
 
         self.tehai[who] += hai
         self.last_tsumo = hai
@@ -502,11 +505,11 @@ class HaihuParser():
     def parse_dahai_tag(self, elem: str) -> None:
         idx = {'D': 0, 'E': 1, 'F': 2, 'G': 3}
         who = idx[elem[0]]
-        hai = Hai136(int(elem[1:]))
+        hai = Hai(int(elem[1:]))
 
         # 打牌の抽出
         if self.mode == Mode.DAHAI and not self.riichi[who]:
-            self.output(who, hai.to_hai34().id)
+            self.output(who, hai.id // 4)
 
         # 打牌の処理
         self.kawa[who].append(hai)
