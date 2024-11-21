@@ -13,6 +13,7 @@ tqdm = "*"
 kago-utils = {file = "../kago-utils", editable = true}
 
 [dev-packages]
+ruff = "*"
 
 [requires]
 python_version = "3.12"
@@ -20,3 +21,5 @@ python_version = "3.12"
 [scripts]
 parse = "python -m scripts.parse_haihu"
 train = "python -m scripts.train_haihu"
+lint = "python -m ruff check"
+format = "python -m ruff format"
