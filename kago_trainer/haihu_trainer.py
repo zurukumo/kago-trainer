@@ -38,9 +38,7 @@ class MyModel(nn.Module):
 
 
 class HaihuTrainer:
-    def __init__(
-        self, mode: Mode, batch_size: int, n_epoch: int, checkpoint_path: str | None
-    ):
+    def __init__(self, mode: Mode, batch_size: int, n_epoch: int, checkpoint_path: str | None):
         self.mode = mode
         self.batch_size = batch_size
         self.n_epoch = n_epoch
@@ -82,9 +80,7 @@ class HaihuTrainer:
             self.print_log(log)
 
         # モデルを保存
-        model_path = os.path.join(
-            os.path.dirname(__file__), f"../models/{self.model_name}.pt"
-        )
+        model_path = os.path.join(os.path.dirname(__file__), f"../models/{self.model_name}.pt")
         model_path = os.path.abspath(model_path)
         torch.save(
             {
@@ -101,20 +97,14 @@ class HaihuTrainer:
         torch.manual_seed(0)
 
         # ファイル読み込み
-        dataset_path = os.path.join(
-            os.path.dirname(__file__), f"../datasets/{self.mode.value}.pt"
-        )
+        dataset_path = os.path.join(os.path.dirname(__file__), f"../datasets/{self.mode.value}.pt")
         dataset_dict = torch.load(dataset_path, weights_only=True)
 
         # データセットの準備
         dataset = TensorDataset(dataset_dict["x"], dataset_dict["t"])
         train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
-        self.train_loader = DataLoader(
-            train_dataset, batch_size=self.batch_size, shuffle=True
-        )
-        self.test_loader = DataLoader(
-            test_dataset, batch_size=self.batch_size, shuffle=False
-        )
+        self.train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+        self.test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
 
     # 学習用関数
     def train_model(self):

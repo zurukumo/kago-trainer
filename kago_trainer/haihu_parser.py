@@ -153,12 +153,7 @@ class HaihuParser:
             return
 
         # 鳴いている
-        has_naki = any(
-            [
-                isinstance(huuro, (Chii, Pon, Kakan, Daiminkan))
-                for huuro in self.huuro[who]
-            ]
-        )
+        has_naki = any([isinstance(huuro, (Chii, Pon, Kakan, Daiminkan)) for huuro in self.huuro[who]])
         if has_naki:
             return
 
@@ -184,9 +179,7 @@ class HaihuParser:
             shanten1 = Shanten(tehai1)
             # 暗槓後
             base_id = self.last_tsumo.id - self.last_tsumo.id % 4
-            tehai2 = self.tehai[who] - HaiGroup.from_list(
-                [base_id, base_id + 1, base_id + 2, base_id + 3]
-            )
+            tehai2 = self.tehai[who] - HaiGroup.from_list([base_id, base_id + 1, base_id + 2, base_id + 3])
             shanten2 = Shanten(tehai2)
 
             if not (shanten1.shanten == shanten2.shanten == 0):
@@ -361,11 +354,7 @@ class HaihuParser:
         # 全員の最終打牌(1plane * 4players)
         planes: list[list[int]] = []
         for i in range(4):
-            if (
-                self.last_dahai is not None
-                and self.last_teban is not None
-                and i == self.last_teban
-            ):
+            if self.last_dahai is not None and self.last_teban is not None and i == self.last_teban:
                 planes.append(HaiGroup([self.last_dahai]).to_counter34())
             else:
                 planes.append([0] * 34)

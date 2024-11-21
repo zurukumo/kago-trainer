@@ -43,15 +43,9 @@ class HuuroParser:
     @classmethod
     def parse_chii(cls, m: int) -> Chii:
         pattern = (m & 0xFC00) >> 10
-        h1 = ((pattern // 3 // 7) * 9 + (pattern // 3 % 7 + 0)) * 4 + (
-            (m & 0x0018) >> 3
-        )
-        h2 = ((pattern // 3 // 7) * 9 + (pattern // 3 % 7 + 1)) * 4 + (
-            (m & 0x0060) >> 5
-        )
-        h3 = ((pattern // 3 // 7) * 9 + (pattern // 3 % 7 + 2)) * 4 + (
-            (m & 0x0180) >> 7
-        )
+        h1 = ((pattern // 3 // 7) * 9 + (pattern // 3 % 7 + 0)) * 4 + ((m & 0x0018) >> 3)
+        h2 = ((pattern // 3 // 7) * 9 + (pattern // 3 % 7 + 1)) * 4 + ((m & 0x0060) >> 5)
+        h3 = ((pattern // 3 // 7) * 9 + (pattern // 3 % 7 + 2)) * 4 + ((m & 0x0180) >> 7)
         stolen_hai = [h1, h2, h3][pattern % 3]
         return Chii(
             hais=HaiGroup.from_list([h1, h2, h3]),
@@ -63,10 +57,7 @@ class HuuroParser:
         pattern = (m & 0xFE00) >> 9
         base_id = (pattern // 3) * 4
         unused = Hai(base_id + ((m & 0x0060) >> 5))
-        hais = (
-            HaiGroup.from_list([base_id, base_id + 1, base_id + 2, base_id + 3])
-            - unused
-        )
+        hais = HaiGroup.from_list([base_id, base_id + 1, base_id + 2, base_id + 3]) - unused
         stolen = hais[pattern % 3]
         from_who = cls.parse_from_who(m)
         return Pon(hais=hais, stolen=stolen, from_who=from_who)

@@ -17,9 +17,7 @@ if __name__ == "__main__":
         if filename.startswith(mode) and filename.endswith((".pt", ".pth")):
             checkpoint_paths.append(filename)
     checkpoint_paths.sort()
-    checkpoint_path = questionary.select(
-        "checkpoint_path?", choices=["None"] + checkpoint_paths
-    ).ask()
+    checkpoint_path = questionary.select("checkpoint_path?", choices=["None"] + checkpoint_paths).ask()
 
     if checkpoint_path == "None":
         checkpoint_path = None
