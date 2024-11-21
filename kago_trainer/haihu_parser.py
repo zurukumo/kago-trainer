@@ -13,7 +13,7 @@ from kago_trainer.huuro_parser import HuuroParser
 from kago_trainer.mode import Mode
 
 
-class HaihuParser():
+class HaihuParser:
     YEARS = [2015, 2016, 2017]
 
     count: int
@@ -31,7 +31,7 @@ class HaihuParser():
     action_i: int
 
     tehai: list[HaiGroup]
-    huuro: list[list[Chii | Pon | Kakan | Daiminkan | Daiminkan]]
+    huuro: list[list[Chii | Pon | Kakan | Daiminkan | Ankan]]
     kawa: list[list[Hai]]
     dora: list[Hai]
     riichi: list[bool]
@@ -43,11 +43,28 @@ class HaihuParser():
     who: int
 
     __slots__ = (
-        'count', 'mode', 'max_case', 'debug', 'progress_bar',
-        'x', 't',
-        'filename', 'ts', 'actions', 'action_i',
-        'tehai', 'huuro', 'kawa', 'dora', 'riichi', 'kyoku', 'ten',
-        'last_teban', 'last_tsumo', 'last_dahai', 'who'
+        "count",
+        "mode",
+        "max_case",
+        "debug",
+        "progress_bar",
+        "x",
+        "t",
+        "filename",
+        "ts",
+        "actions",
+        "action_i",
+        "tehai",
+        "huuro",
+        "kawa",
+        "dora",
+        "riichi",
+        "kyoku",
+        "ten",
+        "last_teban",
+        "last_tsumo",
+        "last_dahai",
+        "who",
     )
 
     def __init__(self, mode: Mode, max_case: int, debug: bool = False) -> None:
@@ -64,7 +81,7 @@ class HaihuParser():
 
         dataset = {
             "x": torch.tensor(self.x, dtype=torch.float32),
-            "t": torch.tensor(self.t, dtype=torch.long)
+            "t": torch.tensor(self.t, dtype=torch.long),
         }
         torch.save(dataset, f"./datasets/{self.output_filename}.pt")
 
@@ -78,33 +95,33 @@ class HaihuParser():
                 self.action_i = action_i
 
                 # 開局
-                if elem == 'INIT':
+                if elem == "INIT":
                     self.parse_init_tag(attr)
 
                 # ツモ
-                elif re.match(r'[T|U|V|W][0-9]+', elem):
+                elif re.match(r"[T|U|V|W][0-9]+", elem):
                     self.parse_tsumo_tag(elem)
 
                 # 打牌
-                elif re.match(r'[D|E|F|G][0-9]+', elem):
+                elif re.match(r"[D|E|F|G][0-9]+", elem):
                     self.parse_dahai_tag(elem)
 
                 # 副露
-                elif elem == 'N':
+                elif elem == "N":
                     self.parse_huuro_tag(attr)
 
                 # リーチ成立
-                elif elem == 'REACH' and attr['step'] == '2':
-                    who = int(attr['who'])
+                elif elem == "REACH" and attr["step"] == "2":
+                    who = int(attr["who"])
                     self.riichi[who] = True
 
                 # ドラ
-                elif elem == 'DORA':
-                    self.dora.append(Hai(int(attr['hai'])))
+                elif elem == "DORA":
+                    self.dora.append(Hai(int(attr["hai"])))
 
                 # 和了
-                elif elem == 'AGARI':
-                    who = int(attr['who'])
+                elif elem == "AGARI":
+                    who = int(attr["who"])
                     self.who = who
 
                 if self.count >= self.max_case:
@@ -112,14 +129,14 @@ class HaihuParser():
 
     def list_xml_files(self) -> Generator[tuple[str, str], None, None]:
         for year in HaihuParser.YEARS:
-            for filename in os.listdir(f'./haihus/xml{year}'):
-                filepath = f'./haihus/xml{year}/{filename}'
+            for filename in os.listdir(f"./haihus/xml{year}"):
+                filepath = f"./haihus/xml{year}/{filename}"
                 yield filepath, filename
 
     def parse_actions(self, filename: str) -> list[tuple[str, dict[str, str]]]:
-        with open(filename, 'r') as xml:
+        with open(filename, "r") as xml:
             actions = []
-            for elem, attr in re.findall(r'<(.*?)[ /](.*?)/?>', xml.read()):
+            for elem, attr in re.findall(r"<(.*?)[ /](.*?)/?>", xml.read()):
                 attr = dict(re.findall(r'\s?(.*?)="(.*?)"', attr))
                 actions.append((elem, attr))
 
@@ -136,12 +153,17 @@ class HaihuParser():
             return
 
         # 鳴いている
-        has_naki = any([isinstance(huuro, (Chii, Pon, Kakan, Daiminkan)) for huuro in self.huuro[who]])
+        has_naki = any(
+            [
+                isinstance(huuro, (Chii, Pon, Kakan, Daiminkan))
+                for huuro in self.huuro[who]
+            ]
+        )
         if has_naki:
             return
 
         if Shanten(self.tehai[who]).shanten == 0:
-            if next_elem == 'REACH':
+            if next_elem == "REACH":
                 y = 1
             else:
                 y = 0
@@ -162,7 +184,9 @@ class HaihuParser():
             shanten1 = Shanten(tehai1)
             # 暗槓後
             base_id = self.last_tsumo.id - self.last_tsumo.id % 4
-            tehai2 = self.tehai[who] - HaiGroup.from_list([base_id, base_id + 1, base_id + 2, base_id + 3])
+            tehai2 = self.tehai[who] - HaiGroup.from_list(
+                [base_id, base_id + 1, base_id + 2, base_id + 3]
+            )
             shanten2 = Shanten(tehai2)
 
             if not (shanten1.shanten == shanten2.shanten == 0):
@@ -170,8 +194,8 @@ class HaihuParser():
             if shanten1.yuukouhai != shanten2.yuukouhai:
                 return
 
-            if next_elem == 'N':
-                huuro = HuuroParser.from_haihu(int(next_attr['m']))
+            if next_elem == "N":
+                huuro = HuuroParser.from_haihu(int(next_attr["m"]))
                 if isinstance(huuro, Ankan):
                     self.output(who, 1)
             else:
@@ -183,8 +207,8 @@ class HaihuParser():
                 if self.tehai[who].to_counter34()[i] != 4:
                     continue
 
-                if next_elem == 'N':
-                    huuro = HuuroParser.from_haihu(int(next_attr['m']))
+                if next_elem == "N":
+                    huuro = HuuroParser.from_haihu(int(next_attr["m"]))
                     if isinstance(huuro, Ankan):
                         self.output(who, 1)
                 else:
@@ -198,15 +222,15 @@ class HaihuParser():
 
             # 何もしない -> 0, ロン -> 1, 明槓 -> 2, ポン -> 3, 左牌をチー -> 4, 中央牌をチー -> 5, 右牌をチー -> 6
             y = 0
-            if next_elem == 'AGARI':
+            if next_elem == "AGARI":
                 # ダブロン、トリロンの可能性があるので全てのAGARIタグを見る
-                for elem, attr in self.actions[self.action_i + 1:]:
-                    if elem != 'AGARI':
+                for elem, attr in self.actions[self.action_i + 1 :]:
+                    if elem != "AGARI":
                         break
-                    if int(attr['who']) == who:
+                    if int(attr["who"]) == who:
                         y = 1
-            elif next_elem == 'N' and int(next_attr['who']) == who:
-                huuro = HuuroParser.from_haihu(int(next_attr['m']))
+            elif next_elem == "N" and int(next_attr["who"]) == who:
+                huuro = HuuroParser.from_haihu(int(next_attr["m"]))
                 if isinstance(huuro, Daiminkan):
                     y = 2
                 elif isinstance(huuro, Pon):
@@ -230,9 +254,9 @@ class HaihuParser():
             self.debug_print(i, HaiGroup.from_counter34(plane).to_string())
             if i % n_unit == n_unit - 1:
                 if i == len(planes) - 1:
-                    self.debug_print('')
+                    self.debug_print("")
                 else:
-                    self.debug_print('============')
+                    self.debug_print("============")
 
     def to_planes(self, counter: list[int], depth: int) -> list[list[int]]:
         planes = [[0] * 34 for _ in range(depth)]
@@ -265,8 +289,8 @@ class HaihuParser():
             if i == who:
                 counter = [0] * 34
                 for hai in self.tehai[who].hais:
-                    if hai.color == 'aka':
-                        counter[hai.id//4] += 1
+                    if hai.color == "r":
+                        counter[hai.id // 4] += 1
                 planes.append(counter)
             else:
                 planes.append([0] * 34)
@@ -297,7 +321,7 @@ class HaihuParser():
             counter = [0] * 34
             for huuro in self.huuro[i]:
                 for hai in huuro.hais:
-                    if hai.color == "aka":
+                    if hai.color == "r":
                         counter[hai.id // 4] += 1
             planes.append(counter)
 
@@ -325,7 +349,7 @@ class HaihuParser():
         for i in range(4):
             counter = [0] * 34
             for hai in self.kawa[i]:
-                if hai.color == "aka":
+                if hai.color == "r":
                     counter[hai.id // 4] += 1
             planes.append(counter)
 
@@ -337,7 +361,11 @@ class HaihuParser():
         # 全員の最終打牌(1plane * 4players)
         planes: list[list[int]] = []
         for i in range(4):
-            if self.last_dahai is not None and self.last_teban is not None and i == self.last_teban:
+            if (
+                self.last_dahai is not None
+                and self.last_teban is not None
+                and i == self.last_teban
+            ):
                 planes.append(HaiGroup([self.last_dahai]).to_counter34())
             else:
                 planes.append([0] * 34)
@@ -416,17 +444,17 @@ class HaihuParser():
     def output_filename(self) -> str:
         match self.mode:
             case Mode.DAHAI:
-                return 'dahai'
+                return "dahai"
             case Mode.RIICHI:
-                return 'riichi'
+                return "riichi"
             case Mode.ANKAN:
-                return 'ankan'
+                return "ankan"
             case Mode.KAKAN:
-                return 'kakan'
+                return "kakan"
             case Mode.RON_DAMINKAN_PON_CHII:
-                return 'ron_daiminkan_pon_chii'
+                return "ron_daiminkan_pon_chii"
 
-        raise ValueError('Invalid Mode')
+        raise ValueError("Invalid Mode")
 
     def output(self, who: int, t: int) -> None:
         self.debug_print(self.url())
@@ -470,16 +498,16 @@ class HaihuParser():
 
         # 配牌をパース
         for who in range(4):
-            for hai in map(int, attr[f'hai{who}'].split(',')):
+            for hai in map(int, attr[f"hai{who}"].split(",")):
                 self.tehai[who] += Hai(hai)
 
         # 局数、本場、供託、ドラをパース
-        kyoku, honba, kyotaku, _, _, dora = map(int, attr['seed'].split(','))
+        kyoku, honba, kyotaku, _, _, dora = map(int, attr["seed"].split(","))
         self.kyoku = kyoku
         self.dora.append(Hai(dora))
 
         # 点棒状況をパース
-        for who, ten in enumerate(map(int, attr['ten'].split(','))):
+        for who, ten in enumerate(map(int, attr["ten"].split(","))):
             self.ten[who] = ten
 
         self.last_teban = None
@@ -487,7 +515,7 @@ class HaihuParser():
         self.last_tsumo = None
 
     def parse_tsumo_tag(self, elem: str) -> None:
-        idx = {'T': 0, 'U': 1, 'V': 2, 'W': 3}
+        idx = {"T": 0, "U": 1, "V": 2, "W": 3}
         who = idx[elem[0]]
         hai = Hai(int(elem[1:]))
 
@@ -503,7 +531,7 @@ class HaihuParser():
             self.sample_ankan(who)
 
     def parse_dahai_tag(self, elem: str) -> None:
-        idx = {'D': 0, 'E': 1, 'F': 2, 'G': 3}
+        idx = {"D": 0, "E": 1, "F": 2, "G": 3}
         who = idx[elem[0]]
         hai = Hai(int(elem[1:]))
 
@@ -522,17 +550,17 @@ class HaihuParser():
             self.sample_ron_daiminkan_pon_chii()
 
     def parse_huuro_tag(self, attr: dict[str, str]) -> None:
-        who = int(attr['who'])
-        m = int(attr['m'])
+        who = int(attr["who"])
+        m = int(attr["m"])
         huuro = HuuroParser.from_haihu(m)
 
         match huuro:
             case Chii():
-                self.tehai[who] -= (huuro.hais - huuro.stolen)
+                self.tehai[who] -= huuro.hais - huuro.stolen
                 self.huuro[who].append(huuro)
 
             case Pon():
-                self.tehai[who] -= (huuro.hais - huuro.stolen)
+                self.tehai[who] -= huuro.hais - huuro.stolen
                 self.huuro[who].append(huuro)
 
             case Kakan():
@@ -544,7 +572,7 @@ class HaihuParser():
                         break
 
             case Daiminkan():
-                self.tehai[who] -= (huuro.hais - huuro.stolen)
+                self.tehai[who] -= huuro.hais - huuro.stolen
                 self.huuro[who].append(huuro)
 
             case Ankan():

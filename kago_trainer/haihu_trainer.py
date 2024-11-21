@@ -12,8 +12,8 @@ from kago_trainer.mode import Mode
 class ResidualBlock(nn.Module):
     def __init__(self, channels):
         super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv1d(channels, channels, kernel_size=3, padding='same')
-        self.conv2 = nn.Conv1d(channels, channels, kernel_size=3, padding='same')
+        self.conv1 = nn.Conv1d(channels, channels, kernel_size=3, padding="same")
+        self.conv2 = nn.Conv1d(channels, channels, kernel_size=3, padding="same")
 
     def forward(self, x):
         residual = x  # 入力をそのまま保存 (残差)
@@ -25,9 +25,9 @@ class ResidualBlock(nn.Module):
 class MyModel(nn.Module):
     def __init__(self, n_channel, n_output):
         super(MyModel, self).__init__()
-        self.initial_conv = nn.Conv1d(n_channel, 256, kernel_size=3, padding='same')
+        self.initial_conv = nn.Conv1d(n_channel, 256, kernel_size=3, padding="same")
         self.blocks = nn.ModuleList([ResidualBlock(256) for _ in range(50)])
-        self.final_conv = nn.Conv1d(256, 1, kernel_size=3, padding='same')
+        self.final_conv = nn.Conv1d(256, 1, kernel_size=3, padding="same")
 
     def forward(self, x):
         out = self.initial_conv(x).relu()
@@ -38,7 +38,9 @@ class MyModel(nn.Module):
 
 
 class HaihuTrainer:
-    def __init__(self, mode: Mode, batch_size: int, n_epoch: int, checkpoint_path: str | None):
+    def __init__(
+        self, mode: Mode, batch_size: int, n_epoch: int, checkpoint_path: str | None
+    ):
         self.mode = mode
         self.batch_size = batch_size
         self.n_epoch = n_epoch
@@ -56,12 +58,12 @@ class HaihuTrainer:
         # チェックポイントが指定されている場合は読み込む
         if checkpoint_path is not None:
             checkpoint = torch.load(checkpoint_path, weights_only=True)
-            self.model.load_state_dict(checkpoint['model_state_dict'])
-            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            self.initial_epoch += len(checkpoint['logs'])
+            self.model.load_state_dict(checkpoint["model_state_dict"])
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            self.initial_epoch += len(checkpoint["logs"])
 
-            self.logs = checkpoint['logs']
-            print('Checkpoint loaded.')
+            self.logs = checkpoint["logs"]
+            print("Checkpoint loaded.")
             for log in self.logs:
                 self.print_log(log)
             print("=============================")
@@ -70,33 +72,49 @@ class HaihuTrainer:
             train_loss = self.train_model()
             accuracy, test_loss = self.evaluate_model()
 
-            log = {'epoch': epoch, 'train_loss': train_loss, 'test_loss': test_loss, 'accuracy': accuracy}
+            log = {
+                "epoch": epoch,
+                "train_loss": train_loss,
+                "test_loss": test_loss,
+                "accuracy": accuracy,
+            }
             self.logs.append(log)
             self.print_log(log)
 
         # モデルを保存
-        model_path = os.path.join(os.path.dirname(__file__), f'../models/{self.model_name}.pt')
+        model_path = os.path.join(
+            os.path.dirname(__file__), f"../models/{self.model_name}.pt"
+        )
         model_path = os.path.abspath(model_path)
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'logs': self.logs
-        }, model_path)
-        print(f'Model saved: {model_path}')
+        torch.save(
+            {
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "logs": self.logs,
+            },
+            model_path,
+        )
+        print(f"Model saved: {model_path}")
 
     def prepare_data_loader(self):
         # シード値を固定する
         torch.manual_seed(0)
 
         # ファイル読み込み
-        dataset_path = os.path.join(os.path.dirname(__file__), f'../datasets/{self.mode.value}.pt')
+        dataset_path = os.path.join(
+            os.path.dirname(__file__), f"../datasets/{self.mode.value}.pt"
+        )
         dataset_dict = torch.load(dataset_path, weights_only=True)
 
         # データセットの準備
-        dataset = TensorDataset(dataset_dict['x'], dataset_dict['t'])
+        dataset = TensorDataset(dataset_dict["x"], dataset_dict["t"])
         train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
-        self.train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
-        self.test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
+        self.train_loader = DataLoader(
+            train_dataset, batch_size=self.batch_size, shuffle=True
+        )
+        self.test_loader = DataLoader(
+            test_dataset, batch_size=self.batch_size, shuffle=False
+        )
 
     # 学習用関数
     def train_model(self):
@@ -130,7 +148,7 @@ class HaihuTrainer:
     @property
     def model_name(self):
         dt = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
-        return f'{self.mode.value}_{dt}'
+        return f"{self.mode.value}_{dt}"
 
     @property
     def n_channel(self):
@@ -148,13 +166,17 @@ class HaihuTrainer:
             case Mode.RON_DAMINKAN_PON_CHII:
                 return 7
             case _:
-                raise ValueError('Invalid mode')
+                raise ValueError("Invalid mode")
 
     def print_log(self, log):
         max_width = len(str(self.initial_epoch + self.n_epoch))
-        print(', '.join([
-            f'Epoch {log['epoch']+1:>{max_width}}/{self.initial_epoch + self.n_epoch}',
-            f'Train Loss: {log['train_loss']:.4f}',
-            f'Test Loss: {log['test_loss']:.4f}',
-            f'Accuracy: {log['accuracy']*100:.2f}%'
-        ]))
+        print(
+            ", ".join(
+                [
+                    f'Epoch {log['epoch']+1:>{max_width}}/{self.initial_epoch + self.n_epoch}',
+                    f'Train Loss: {log['train_loss']:.4f}',
+                    f'Test Loss: {log['test_loss']:.4f}',
+                    f'Accuracy: {log['accuracy']*100:.2f}%',
+                ]
+            )
+        )

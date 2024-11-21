@@ -4,66 +4,67 @@
 from itertools import combinations
 
 
-class Agari():
+class Agari:
     # 定数
     YAOCHU1 = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33]
     YAOCHU2 = [0, 6, 9, 15, 18, 24]
     YAKU = [
-        '門前清自摸和',
-        '立直',
-        '一発',
-        '槍槓',
-        '嶺上開花',
-        '海底摸月',
-        '河底撈魚',
-        '平和',
-        '断幺九',
-        '一盃口',
-        '自風 東',
-        '自風 南',
-        '自風 西',
-        '自風 北',
-        '場風 東',
-        '場風 南',
-        '場風 西',
-        '場風 北',
-        '役牌 白',
-        '役牌 發',
-        '役牌 中',
-        '両立直',
-        '七対子',
-        '混全帯幺九',
-        '一気通貫',
-        '三色同順',
-        '三色同刻',
-        '三槓子',
-        '対々和',
-        '三暗刻',
-        '小三元',
-        '混老頭',
-        '二盃口',
-        '純全帯幺九',
-        '混一色',
-        '清一色',
-        '',
-        '天和',
-        '地和',
-        '大三元',
-        '四暗刻',
-        '四暗刻単騎',
-        '字一色',
-        '緑一色',
-        '清老頭',
-        '九蓮宝燈',
-        '純正九蓮宝燈',
-        '国士無双',
-        '国士無双１３面',
-        '大四喜',
-        '小四喜',
-        '四槓子',
-        'ドラ',
-        '裏ドラ',
-        '赤ドラ']
+        "門前清自摸和",
+        "立直",
+        "一発",
+        "槍槓",
+        "嶺上開花",
+        "海底摸月",
+        "河底撈魚",
+        "平和",
+        "断幺九",
+        "一盃口",
+        "自風 東",
+        "自風 南",
+        "自風 西",
+        "自風 北",
+        "場風 東",
+        "場風 南",
+        "場風 西",
+        "場風 北",
+        "役牌 白",
+        "役牌 發",
+        "役牌 中",
+        "両立直",
+        "七対子",
+        "混全帯幺九",
+        "一気通貫",
+        "三色同順",
+        "三色同刻",
+        "三槓子",
+        "対々和",
+        "三暗刻",
+        "小三元",
+        "混老頭",
+        "二盃口",
+        "純全帯幺九",
+        "混一色",
+        "清一色",
+        "",
+        "天和",
+        "地和",
+        "大三元",
+        "四暗刻",
+        "四暗刻単騎",
+        "字一色",
+        "緑一色",
+        "清老頭",
+        "九蓮宝燈",
+        "純正九蓮宝燈",
+        "国士無双",
+        "国士無双１３面",
+        "大四喜",
+        "小四喜",
+        "四槓子",
+        "ドラ",
+        "裏ドラ",
+        "赤ドラ",
+    ]
 
     def __init__(self, jun, huro, ba, jokyo_yaku):
         self.jun = jun
@@ -106,7 +107,11 @@ class Agari():
             for i in range(len(self.huro), 13):
                 if machi == agari[i]:
                     # 双ポンロンの場合明刻に変換
-                    if not self.tsumo and i in range(0, 3 * 4, 3) and agari[i + 2] == -4:
+                    if (
+                        not self.tsumo
+                        and i in range(0, 3 * 4, 3)
+                        and agari[i + 2] == -4
+                    ):
                         agari[i + 2] = -2
                         hu = self.get_hu(agari, i)
                         bubun_yaku = self.get_bubun_yaku(agari)
@@ -134,7 +139,7 @@ class Agari():
 
                     hu = -(-hu // 10) * 10
 
-                    if hu * (2 ** han) > max[0] * (2 ** max[1]):
+                    if hu * (2**han) > max[0] * (2 ** max[1]):
                         max = [hu, han]
                         self.bubun_yaku = bubun_yaku
 
@@ -142,7 +147,7 @@ class Agari():
         if self.jun.count(2) == 7:
             han = sum(self.jokyo_yaku) + sum(self.zenbu_yaku) + 2
 
-            if 25 * (2 ** han) > max[0] * (2 ** max[1]):
+            if 25 * (2**han) > max[0] * (2 ** max[1]):
                 max = [25, han]
                 self.bubun_yaku = [2 if i == 22 else 0 for i in range(0, 55)]
 
@@ -152,10 +157,21 @@ class Agari():
             max = [1, han]
             self.bubun_yaku = [13 if i == 47 else 0 for i in range(0, 55)]
 
-        if sum(self.jokyo_yaku[37:52] + self.zenbu_yaku[37:52] + self.bubun_yaku[37:52]) != 0:
-            self.jokyo_yaku = [self.jokyo_yaku[i] if 37 <= i <= 51 else 0 for i in range(0, 55)]
-            self.zenbu_yaku = [self.zenbu_yaku[i] if 37 <= i <= 51 else 0 for i in range(0, 55)]
-            self.bubun_yaku = [self.bubun_yaku[i] if 37 <= i <= 51 else 0 for i in range(0, 55)]
+        if (
+            sum(
+                self.jokyo_yaku[37:52] + self.zenbu_yaku[37:52] + self.bubun_yaku[37:52]
+            )
+            != 0
+        ):
+            self.jokyo_yaku = [
+                self.jokyo_yaku[i] if 37 <= i <= 51 else 0 for i in range(0, 55)
+            ]
+            self.zenbu_yaku = [
+                self.zenbu_yaku[i] if 37 <= i <= 51 else 0 for i in range(0, 55)
+            ]
+            self.bubun_yaku = [
+                self.bubun_yaku[i] if 37 <= i <= 51 else 0 for i in range(0, 55)
+            ]
             han = sum(self.jokyo_yaku + self.zenbu_yaku + self.bubun_yaku)
 
         # 点数変動計算
@@ -192,7 +208,9 @@ class Agari():
             elif self.ba[3] == self.ba[0] % 4:
                 for i in range(0, 4):
                     if i == self.ba[3]:
-                        ten_exchange[i] = -(-ten // 3) * 3 + (self.ba[1] * 3) + (self.ba[2] * 10)
+                        ten_exchange[i] = (
+                            -(-ten // 3) * 3 + (self.ba[1] * 3) + (self.ba[2] * 10)
+                        )
                     else:
                         ten_exchange[i] = -ten // 3 - self.ba[1]
             # 子ツモ
@@ -231,10 +249,21 @@ class Agari():
                 max = sum(bubun_yaku) + sum(self.zenbu_yaku) + sum(self.jokyo_yaku)
                 self.bubun_yaku = bubun_yaku
 
-        if sum(self.jokyo_yaku[37:52] + self.zenbu_yaku[37:52] + self.bubun_yaku[37:52]) != 0:
-            self.jokyo_yaku = [self.jokyo_yaku[i] if 37 <= i <= 51 else 0 for i in range(55)]
-            self.zenbu_yaku = [self.zenbu_yaku[i] if 37 <= i <= 51 else 0 for i in range(55)]
-            self.bubun_yaku = [self.bubun_yaku[i] if 37 <= i <= 51 else 0 for i in range(55)]
+        if (
+            sum(
+                self.jokyo_yaku[37:52] + self.zenbu_yaku[37:52] + self.bubun_yaku[37:52]
+            )
+            != 0
+        ):
+            self.jokyo_yaku = [
+                self.jokyo_yaku[i] if 37 <= i <= 51 else 0 for i in range(55)
+            ]
+            self.zenbu_yaku = [
+                self.zenbu_yaku[i] if 37 <= i <= 51 else 0 for i in range(55)
+            ]
+            self.bubun_yaku = [
+                self.bubun_yaku[i] if 37 <= i <= 51 else 0 for i in range(55)
+            ]
 
         ten = 30 * (2 ** (max + 2))
 
@@ -356,7 +385,11 @@ class Agari():
         # 45:九蓮宝燈
         if self.huro == []:
             for i in [0, 9, 18]:
-                if self.map[i] >= 3 and self.map[i + 8] >= 3 and 0 not in self.map[i + 1:i + 8]:
+                if (
+                    self.map[i] >= 3
+                    and self.map[i + 8] >= 3
+                    and 0 not in self.map[i + 1 : i + 8]
+                ):
                     zenbu_yaku[45] = 13
 
         # 49:大四喜
@@ -374,9 +407,9 @@ class Agari():
 
         # 34:混一色, 35:清一色
         for i in [0, 9, 18]:
-            if sum(self.map[i:i + 9]) == 14:
+            if sum(self.map[i : i + 9]) == 14:
                 zenbu_yaku[35] = 5 + self.menzen
-            elif sum(self.map[i:i + 9] + self.map[27:34]) == 14:
+            elif sum(self.map[i : i + 9] + self.map[27:34]) == 14:
                 zenbu_yaku[34] = 2 + self.menzen
 
         # 10-13:自風, 14-17:場風, 18-20:役牌
@@ -421,7 +454,11 @@ class Agari():
         if self.menzen:
             if agari[0:3] == agari[3:6] and agari[6:9] == agari[9:12]:
                 bubun_yaku[32] = 3
-            elif agari[0:3] == agari[3:6] or agari[3:6] == agari[6:9] or agari[6:9] == agari[9:12]:
+            elif (
+                agari[0:3] == agari[3:6]
+                or agari[3:6] == agari[6:9]
+                or agari[6:9] == agari[9:12]
+            ):
                 bubun_yaku[9] = 1
 
         # 23:混全帯幺九, 33:純全帯幺九
@@ -452,14 +489,33 @@ class Agari():
                 break
 
         # 25:三色同順
-        for i in combinations([agari[i] for i in range(0, 3 * 4, 3) if agari[i + 2] >= -1], 3):
-            if i[0] % 9 == i[1] % 9 == i[2] % 9 and i[0] != i[1] and i[0] != i[2] and i[1] != i[2]:
+        for i in combinations(
+            [agari[i] for i in range(0, 3 * 4, 3) if agari[i + 2] >= -1], 3
+        ):
+            if (
+                i[0] % 9 == i[1] % 9 == i[2] % 9
+                and i[0] != i[1]
+                and i[0] != i[2]
+                and i[1] != i[2]
+            ):
                 bubun_yaku[25] = 1 + self.menzen
                 break
 
         # 26:三色同刻
-        for i in combinations([agari[i] for i in range(0, 3 * 4, 3) if agari[i + 2] <= -2 and agari[i] <= 26], 3):
-            if i[0] % 9 == i[1] % 9 == i[2] % 9 and i[0] != i[1] and i[0] != i[2] and i[1] != i[2]:
+        for i in combinations(
+            [
+                agari[i]
+                for i in range(0, 3 * 4, 3)
+                if agari[i + 2] <= -2 and agari[i] <= 26
+            ],
+            3,
+        ):
+            if (
+                i[0] % 9 == i[1] % 9 == i[2] % 9
+                and i[0] != i[1]
+                and i[0] != i[2]
+                and i[1] != i[2]
+            ):
                 bubun_yaku[25] = 2
                 break
 
@@ -473,7 +529,10 @@ class Agari():
             print(agari)
 
         # 29:三暗刻
-        if sum([1 for i in range(2, 3 * 4, 3) if agari[i] == -4 or agari[i] == -16]) == 3:
+        if (
+            sum([1 for i in range(2, 3 * 4, 3) if agari[i] == -4 or agari[i] == -16])
+            == 3
+        ):
             bubun_yaku[29] = 2
 
         return bubun_yaku
