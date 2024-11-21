@@ -162,7 +162,7 @@ class HaihuParser():
             shanten1 = Shanten(tehai1)
             # 暗槓後
             base_id = self.last_tsumo.id - self.last_tsumo.id % 4
-            tehai2 = self.tehai[who] - HaiGroup.from_list136([base_id, base_id + 1, base_id + 2, base_id + 3])
+            tehai2 = self.tehai[who] - HaiGroup.from_list([base_id, base_id + 1, base_id + 2, base_id + 3])
             shanten2 = Shanten(tehai2)
 
             if not (shanten1.shanten == shanten2.shanten == 0):
@@ -537,7 +537,7 @@ class HaihuParser():
 
             case Kakan():
                 for i, h in enumerate(self.huuro[who]):
-                    if isinstance(h, Pon) and h.hais == huuro.hais:
+                    if isinstance(h, Pon) and h.hais[0].name == huuro.hais[0].name:
                         new_huuro = h.to_kakan()
                         self.huuro[who][i] = new_huuro
                         self.tehai[who] -= new_huuro.added
