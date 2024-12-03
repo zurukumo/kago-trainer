@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+mt19937ar = "*"
 numpy = "<2.0.0"
 questionary = "*"
 scikit-learn = "*"
