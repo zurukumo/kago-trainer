@@ -1,6 +1,4 @@
-import os
 import re
-from typing import Generator
 
 import torch
 from kago_utils.hai import Hai
@@ -9,26 +7,26 @@ from kago_utils.huuro import Ankan, Chii, Daiminkan, Kakan, Pon
 from kago_utils.shanten import Shanten
 from tqdm import tqdm
 
+from kago_trainer.haihu_loader import HaihuLoader
 from kago_trainer.huuro_parser import HuuroParser
 from kago_trainer.mode import Mode
 
 
 class HaihuParser:
-    YEARS = [2015, 2016, 2017]
-
     count: int
     mode: Mode
     max_case: int
-    debug: bool
     progress_bar: tqdm
+    debug: bool
+    loader: HaihuLoader
 
     x: list[list[list[int]]]
     t: list[int]
 
-    filename: str
+    haihu_id: str
     ts: int
-    actions: list[tuple[str, dict[str, str]]]
-    action_i: int
+    tags: list[tuple[str, dict[str, str]]]
+    tag_i: int
 
     tehai: list[HaiGroup]
     huuro: list[list[Chii | Pon | Kakan | Daiminkan | Ankan]]
@@ -46,14 +44,15 @@ class HaihuParser:
         "count",
         "mode",
         "max_case",
-        "debug",
         "progress_bar",
+        "debug",
+        "loader",
         "x",
         "t",
-        "filename",
+        "haihu_id",
         "ts",
-        "actions",
-        "action_i",
+        "tags",
+        "tag_i",
         "tehai",
         "huuro",
         "kawa",
@@ -71,8 +70,9 @@ class HaihuParser:
         self.count = 0
         self.mode = mode
         self.max_case = max_case
-        self.debug = debug
         self.progress_bar = tqdm(total=self.max_case)
+        self.debug = debug
+        self.loader = HaihuLoader("haihus")
 
         self.x = []
         self.t = []
@@ -83,16 +83,15 @@ class HaihuParser:
             "x": torch.tensor(self.x, dtype=torch.float32),
             "t": torch.tensor(self.t, dtype=torch.long),
         }
-        torch.save(dataset, f"./datasets/{self.output_filename}.pt")
+        torch.save(dataset, f"./datasets/{self.output_haihu_id}.pt")
 
     def run(self) -> None:
-        for filepath, filename in self.list_xml_files():
-            self.filename = filename
+        for haihu in self.loader:
+            self.haihu_id = haihu.id
+            self.tags = haihu.tags
             self.ts = -1
-            self.actions = self.parse_actions(filepath)
-
-            for action_i, (elem, attr) in enumerate(self.actions):
-                self.action_i = action_i
+            for tag_i, (elem, attr) in enumerate(haihu.tags):
+                self.tag_i = tag_i
 
                 # 開局
                 if elem == "INIT":
@@ -127,26 +126,11 @@ class HaihuParser:
                 if self.count >= self.max_case:
                     return
 
-    def list_xml_files(self) -> Generator[tuple[str, str], None, None]:
-        for year in HaihuParser.YEARS:
-            for filename in os.listdir(f"./haihus/xml{year}"):
-                filepath = f"./haihus/xml{year}/{filename}"
-                yield filepath, filename
-
-    def parse_actions(self, filename: str) -> list[tuple[str, dict[str, str]]]:
-        with open(filename, "r") as xml:
-            actions = []
-            for elem, attr in re.findall(r"<(.*?)[ /](.*?)/?>", xml.read()):
-                attr = dict(re.findall(r'\s?(.*?)="(.*?)"', attr))
-                actions.append((elem, attr))
-
-        return actions
-
     def url(self) -> str:
-        return f'https://tenhou.net/0/?log={self.filename.replace('.xml', '')}&ts={self.ts}'
+        return f"https://tenhou.net/0/?log={self.haihu_id}&ts={self.ts}"
 
     def sample_riichi(self, who: int) -> None:
-        next_elem, _ = self.actions[self.action_i + 1]
+        next_elem, _ = self.tags[self.tag_i + 1]
 
         # リーチ中
         if self.riichi[who]:
@@ -165,7 +149,7 @@ class HaihuParser:
             self.output(who, y)
 
     def sample_ankan(self, who: int) -> None:
-        next_elem, next_attr = self.actions[self.action_i + 1]
+        next_elem, next_attr = self.tags[self.tag_i + 1]
 
         # リーチ中(向聴数と待ちが変わらない暗槓が可能)
         if self.riichi[who]:
@@ -208,7 +192,7 @@ class HaihuParser:
                     self.output(who, 0)
 
     def sample_ron_daiminkan_pon_chii(self) -> None:
-        next_elem, next_attr = self.actions[self.action_i + 1]
+        next_elem, next_attr = self.tags[self.tag_i + 1]
         for who in range(4):
             if who == self.last_teban:
                 continue
@@ -217,7 +201,7 @@ class HaihuParser:
             y = 0
             if next_elem == "AGARI":
                 # ダブロン、トリロンの可能性があるので全てのAGARIタグを見る
-                for elem, attr in self.actions[self.action_i + 1 :]:
+                for elem, attr in self.tags[self.tag_i + 1 :]:
                     if elem != "AGARI":
                         break
                     if int(attr["who"]) == who:
@@ -244,7 +228,7 @@ class HaihuParser:
 
     def debug_planes(self, planes: list[list[int]], n_unit: int) -> None:
         for i, plane in enumerate(planes):
-            self.debug_print(i, HaiGroup.from_counter34(plane).to_string())
+            self.debug_print(i, HaiGroup.from_counter34(plane).to_code())
             if i % n_unit == n_unit - 1:
                 if i == len(planes) - 1:
                     self.debug_print("")
@@ -430,7 +414,7 @@ class HaihuParser:
         return planes
 
     @property
-    def output_filename(self) -> str:
+    def output_haihu_id(self) -> str:
         match self.mode:
             case Mode.DAHAI:
                 return "dahai"
@@ -554,7 +538,11 @@ class HaihuParser:
 
             case Kakan():
                 for i, h in enumerate(self.huuro[who]):
-                    if isinstance(h, Pon) and h.hais[0].name == huuro.hais[0].name:
+                    if (
+                        isinstance(h, Pon)
+                        and h.hais[0].suit == huuro.hais[0].suit
+                        and h.hais[0].number == huuro.hais[0].number
+                    ):
                         new_huuro = h.to_kakan()
                         self.huuro[who][i] = new_huuro
                         self.tehai[who] -= new_huuro.added
