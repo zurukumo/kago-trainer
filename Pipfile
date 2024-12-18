@@ -22,5 +22,6 @@ python_version = "3.12"
 [scripts]
 parse = "python -m scripts.parse_haihu"
 train = "python -m scripts.train_haihu"
+agari = "python -m scripts.parse_agari"
 lint = "python -m ruff check"
 format = "python -m ruff format"
