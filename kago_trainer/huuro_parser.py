@@ -84,4 +84,4 @@ class HuuroParser:
 
     @classmethod
     def parse_from_who(cls, m: int) -> Zaichi:
-        return [Zaichi.JICHA, Zaichi.SIMOCHA, Zaichi.TOIMEN, Zaichi.KAMICHA][m & 0x0003]
+        return [Zaichi.JICHA, Zaichi.SHIMOCHA, Zaichi.TOIMEN, Zaichi.KAMICHA][m & 0x0003]
