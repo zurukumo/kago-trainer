@@ -4,7 +4,7 @@ import torch
 from kago_utils.hai import Hai
 from kago_utils.hai_group import HaiGroup
 from kago_utils.huuro import Ankan, Chii, Daiminkan, Kakan, Pon
-from kago_utils.shanten import Shanten
+from kago_utils.shanten_calculator import ShantenCalculator
 from tqdm import tqdm
 
 from kago_trainer.haihu_loader import HaihuLoader
@@ -141,7 +141,7 @@ class HaihuParser:
         if has_naki:
             return
 
-        if Shanten(self.tehai[who]).shanten == 0:
+        if ShantenCalculator(self.tehai[who]).shanten == 0:
             if next_elem == "REACH":
                 y = 1
             else:
@@ -160,11 +160,11 @@ class HaihuParser:
 
             # ツモ前
             tehai1 = self.tehai[who] - self.last_tsumo
-            shanten1 = Shanten(tehai1)
+            shanten1 = ShantenCalculator(tehai1)
             # 暗槓後
             base_id = self.last_tsumo.id - self.last_tsumo.id % 4
             tehai2 = self.tehai[who] - HaiGroup.from_list([base_id, base_id + 1, base_id + 2, base_id + 3])
-            shanten2 = Shanten(tehai2)
+            shanten2 = ShantenCalculator(tehai2)
 
             if not (shanten1.shanten == shanten2.shanten == 0):
                 return

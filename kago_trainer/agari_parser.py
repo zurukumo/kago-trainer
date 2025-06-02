@@ -3,7 +3,7 @@ import re
 from typing import Generator
 from uuid import uuid4
 
-from kago_utils.agari import Agari
+from kago_utils.agari_calculator import AgariCalculator
 from kago_utils.game import Game
 from kago_utils.hai import Hai
 from kago_utils.hai_group import HaiGroup
@@ -88,7 +88,7 @@ JOKYO_YAKU = (
 
 
 def convert_yaku_from_tenhou(tyaku: list[int], tyakuman: list[int]) -> dict[str, int]:
-    yaku = Agari.initialize_yaku()
+    yaku = AgariCalculator.initialize_yaku()
 
     for i in range(0, len(tyaku), 2):
         yaku_id = tyaku[i]
@@ -180,9 +180,9 @@ class AgariParser:
                     jokyo_yaku = dict(((k, v) if k in JOKYO_YAKU else (k, 0) for k, v in tenhou_yaku.items()))
 
                     # mock
-                    Agari.get_jokyo_yaku = lambda _: jokyo_yaku
+                    AgariCalculator.get_jokyo_yaku = lambda _: jokyo_yaku
 
-                    agari = Agari(game, player, is_daburon)
+                    agari = AgariCalculator(game, player, is_daburon)
                     tenhou_ten_movement = [i * 100 for i in sc[1::2]]
                     if agari.ten_movement != tenhou_ten_movement:
                         print("NOT MATCH")
