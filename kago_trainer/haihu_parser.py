@@ -191,7 +191,7 @@ class HaihuParser:
                 else:
                     self.output(who, 0)
 
-    def sample_ron_daiminkan_pon_chii(self) -> None:
+    def sample_ronho_daiminkan_pon_chii(self) -> None:
         next_elem, next_attr = self.tags[self.tag_i + 1]
         for who in range(4):
             if who == self.last_teban:
@@ -424,8 +424,8 @@ class HaihuParser:
                 return "ankan"
             case Mode.KAKAN:
                 return "kakan"
-            case Mode.RON_DAMINKAN_PON_CHII:
-                return "ron_daiminkan_pon_chii"
+            case Mode.RONHO_DAMINKAN_PON_CHII:
+                return "ronho_daiminkan_pon_chii"
 
         raise ValueError("Invalid Mode")
 
@@ -519,8 +519,8 @@ class HaihuParser:
         self.last_teban = who
 
         # ロン、ミンカン、ポン、チーの抽出
-        if self.mode == Mode.RON_DAMINKAN_PON_CHII:
-            self.sample_ron_daiminkan_pon_chii()
+        if self.mode == Mode.RONHO_DAMINKAN_PON_CHII:
+            self.sample_ronho_daiminkan_pon_chii()
 
     def parse_huuro_tag(self, attr: dict[str, str]) -> None:
         who = int(attr["who"])

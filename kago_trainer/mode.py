@@ -6,4 +6,4 @@ class Mode(Enum):
     RIICHI = "riichi"
     ANKAN = "ankan"
     KAKAN = "kakan"
-    RON_DAMINKAN_PON_CHII = "ron_daiminkan_pon_chii"
+    RONHO_DAMINKAN_PON_CHII = "ronho_daiminkan_pon_chii"
