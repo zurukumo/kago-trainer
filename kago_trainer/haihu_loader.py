@@ -19,12 +19,6 @@ class HaihuLoader:
                 if filename.endswith(".xml"):
                     yield HaihuItem(os.path.join(dirpath, filename))
 
-    def __len__(self) -> int:
-        count = 0
-        for _, _, filenames in os.walk(self.root_dir):
-            count += len([filename for filename in filenames if filename.endswith(".xml")])
-        return count
-
 
 class HaihuItem:
     id: str
