@@ -11,7 +11,7 @@ scikit-learn = "*"
 torch = "*"
 torchvision = "*"
 tqdm = "*"
-kago-utils = {file = "../kago-utils", editable = true}
+kago-utils = {git = "https://github.com/zurukumo/kago-utils.git"}
 
 [dev-packages]
 ruff = "*"
@@ -22,6 +22,6 @@ python_version = "3.12"
 [scripts]
 parse = "python -m scripts.parse_haihu"
 train = "python -m scripts.train_haihu"
+visualize = "python -m scripts.visualize_model"
 lint = "python -m ruff check"
 format = "python -m ruff format"
-visualize = "python -m scripts.visualize_model"
