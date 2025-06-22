@@ -14,7 +14,7 @@ if __name__ == "__main__":
     model_dir = os.path.join(os.path.dirname(__file__), "../models")
     checkpoint_paths = []
     for filename in os.listdir(model_dir):
-        if filename.startswith(mode) and filename.endswith((".pt", ".pth")):
+        if filename.startswith(mode) and filename.endswith(".pt"):
             checkpoint_paths.append(filename)
     checkpoint_paths.sort()
     checkpoint_path = questionary.select("checkpoint_path?", choices=["None"] + checkpoint_paths).ask()

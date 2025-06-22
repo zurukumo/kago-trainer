@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class ResidualBlock(nn.Module):
@@ -10,9 +11,9 @@ class ResidualBlock(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = x
-        out = self.conv1(x).relu()
+        out = F.relu(self.conv1(x))
         out = self.conv2(out)
-        return (out + residual).relu()
+        return F.relu(out + residual)
 
 
 class MyModel(nn.Module):
@@ -23,8 +24,8 @@ class MyModel(nn.Module):
         self.final_conv = nn.Conv1d(256, 1, kernel_size=3, padding="same")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.initial_conv(x).relu()
+        out = F.relu(self.initial_conv(x))
         for block in self.blocks:
             out = block(out)
-        out = self.final_conv(out).squeeze()
+        out = torch.squeeze(self.final_conv(out))
         return out

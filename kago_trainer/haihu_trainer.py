@@ -60,6 +60,8 @@ class HaihuTrainer:
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "logs": self.logs,
+                "n_channel": self.n_channel,
+                "n_output": self.n_output,
             },
             model_path,
         )
@@ -126,7 +128,7 @@ class HaihuTrainer:
                 return 2
             case Mode.ANKAN:
                 return 34
-            case Mode.RON_DAMINKAN_PON_CHII:
+            case Mode.RONHO_DAMINKAN_PON_CHII:
                 return 7
             case _:
                 raise ValueError("Invalid mode")
@@ -136,10 +138,10 @@ class HaihuTrainer:
         print(
             ", ".join(
                 [
-                    f'Epoch {log['epoch']+1:>{max_width}}/{self.initial_epoch + self.n_epoch}',
-                    f'Train Loss: {log['train_loss']:.4f}',
-                    f'Test Loss: {log['test_loss']:.4f}',
-                    f'Accuracy: {log['accuracy']*100:.2f}%',
+                    f"Epoch {log['epoch'] + 1:>{max_width}}/{self.initial_epoch + self.n_epoch}",
+                    f"Train Loss: {log['train_loss']:.4f}",
+                    f"Test Loss: {log['test_loss']:.4f}",
+                    f"Accuracy: {log['accuracy'] * 100:.2f}%",
                 ]
             )
         )

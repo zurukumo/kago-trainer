@@ -1,417 +1,415 @@
 import re
 
 import torch
-from kago_utils.actions import Ankan, Chii, Daiminkan, Kakan, Pon
+from kago_utils.actions import Ankan, Chii, Dahai, Daiminkan, Kakan, KyuushuKyuuhai, Pon, Riichi, Ronho, Skip, Tsumoho
+from kago_utils.game import Game, State
 from kago_utils.hai import Hai
 from kago_utils.hai_group import HaiGroup
-from kago_utils.shanten_calculator import ShantenCalculator
+from kago_utils.player import Player
 from tqdm import tqdm
 
-from kago_trainer.haihu_loader import HaihuLoader
+from kago_trainer.haihu_loader import HaihuItem, HaihuLoader
 from kago_trainer.huuro_parser import HuuroParser
 from kago_trainer.mode import Mode
+from kago_trainer.plane_builder import PlaneBuilder
+from kago_trainer.yama_generator import YamaGenerator
 
 
 class HaihuParser:
+    game: Game
+
     count: int
     mode: Mode
-    max_case: int
+    max_count: int
     progress_bar: tqdm
     debug: bool
-    loader: HaihuLoader
 
-    x: list[list[list[int]]]
-    t: list[int]
+    x: torch.Tensor | None
+    t: torch.Tensor | None
 
     haihu_id: str
     ts: int
     tags: list[tuple[str, dict[str, str]]]
     tag_i: int
 
-    tehai: list[HaiGroup]
-    huuro: list[list[Chii | Pon | Kakan | Daiminkan | Ankan]]
-    kawa: list[list[Hai]]
-    dora: list[Hai]
-    riichi: list[bool]
-    kyoku: int
-    ten: list[int]
-    last_teban: int | None
-    last_tsumo: Hai | None
-    last_dahai: Hai | None
-    who: int
-
     __slots__ = (
+        "game",
         "count",
         "mode",
-        "max_case",
+        "max_count",
         "progress_bar",
         "debug",
-        "loader",
         "x",
         "t",
         "haihu_id",
         "ts",
         "tags",
         "tag_i",
-        "tehai",
-        "huuro",
-        "kawa",
-        "dora",
-        "riichi",
-        "kyoku",
-        "ten",
-        "last_teban",
-        "last_tsumo",
-        "last_dahai",
-        "who",
     )
 
-    def __init__(self, mode: Mode, max_case: int, debug: bool = False) -> None:
-        self.count = 0
+    def __init__(self, mode: Mode, max_count: int, debug: bool = False) -> None:
         self.mode = mode
-        self.max_case = max_case
-        self.progress_bar = tqdm(total=self.max_case)
+        self.max_count = max_count
         self.debug = debug
-        self.loader = HaihuLoader("haihus")
-
-        self.x = []
-        self.t = []
-
-        self.run()
-
-        dataset = {
-            "x": torch.tensor(self.x, dtype=torch.float32),
-            "t": torch.tensor(self.t, dtype=torch.long),
-        }
-        torch.save(dataset, f"./datasets/{self.output_haihu_id}.pt")
+        self.count = 0
+        self.progress_bar = tqdm(total=self.max_count)
+        self.x = None
+        self.t = None
 
     def run(self) -> None:
-        for haihu in self.loader:
-            self.haihu_id = haihu.id
-            self.tags = haihu.tags
-            self.ts = -1
-            for tag_i, (elem, attr) in enumerate(haihu.tags):
-                self.tag_i = tag_i
+        for haihu in HaihuLoader(root_dir="haihus"):
+            self.parse_file(haihu)
+            if self.count >= self.max_count:
+                break
 
-                # 開局
-                if elem == "INIT":
-                    self.parse_init_tag(attr)
+        dataset = {"x": self.x, "t": self.t}
+        torch.save(dataset, f"./datasets/{self.output_haihu_id}.pt")
 
-                # ツモ
-                elif re.match(r"[T|U|V|W][0-9]+", elem):
-                    self.parse_tsumo_tag(elem)
+    def parse_file(self, haihu: HaihuItem) -> None:
+        self.haihu_id = haihu.id
+        # 後めくりのDORAタグが悪さをするのでDORAタグはすべて削除する
+        self.tags = [tag for tag in haihu.tags if tag[0] != "DORA"]
+        self.ts = -1
+        for tag_i, (elem, attr) in enumerate(self.tags):
+            self.tag_i = tag_i
 
-                # 打牌
-                elif re.match(r"[D|E|F|G][0-9]+", elem):
-                    self.parse_dahai_tag(elem)
+            # 初期化
+            if elem == "mjloggm":
+                self.parse_mjloggm()
 
-                # 副露
-                elif elem == "N":
-                    self.parse_huuro_tag(attr)
+            # 乱数
+            if elem == "SHUFFLE":
+                self.parse_shuffle_tag(attr)
 
-                # リーチ成立
-                elif elem == "REACH" and attr["step"] == "2":
-                    who = int(attr["who"])
-                    self.riichi[who] = True
-
-                # ドラ
-                elif elem == "DORA":
-                    self.dora.append(Hai(int(attr["hai"])))
-
-                # 和了
-                elif elem == "AGARI":
-                    who = int(attr["who"])
-                    self.who = who
-
-                if self.count >= self.max_case:
+            # ルール
+            if elem == "GO":
+                if not self.is_valid_rule(attr):
                     return
 
-    def url(self) -> str:
-        return f"https://tenhou.net/0/?log={self.haihu_id}&ts={self.ts}"
+            # 開局
+            elif elem == "INIT":
+                self.parse_init_tag(attr)
 
-    def sample_riichi(self, who: int) -> None:
-        next_elem, _ = self.tags[self.tag_i + 1]
+            # ツモ
+            elif re.match(r"[T|U|V|W][0-9]+", elem):
+                self.parse_tsumo_tag(elem)
 
-        # リーチ中
-        if self.riichi[who]:
-            return
+            # 打牌
+            elif re.match(r"[D|E|F|G][0-9]+", elem):
+                self.parse_dahai_tag(elem)
 
-        # 鳴いている
-        has_naki = any([isinstance(huuro, (Chii, Pon, Kakan, Daiminkan)) for huuro in self.huuro[who]])
-        if has_naki:
-            return
+            # 副露
+            elif elem == "N":
+                self.parse_huuro_tag(attr)
 
-        if ShantenCalculator(self.tehai[who]).shanten == 0:
-            if next_elem == "REACH":
-                y = 1
-            else:
-                y = 0
-            self.output(who, y)
+            # リーチ成立
+            elif elem == "REACH":
+                self.parse_riichi_tag(attr)
 
-    def sample_ankan(self, who: int) -> None:
-        next_elem, next_attr = self.tags[self.tag_i + 1]
-
-        # リーチ中(向聴数と待ちが変わらない暗槓が可能)
-        if self.riichi[who]:
-            if self.last_tsumo is None:
-                return
-            if self.tehai[who].to_counter34()[self.last_tsumo.id // 4] != 4:
-                return
-
-            # ツモ前
-            tehai1 = self.tehai[who] - self.last_tsumo
-            shanten1 = ShantenCalculator(tehai1)
-            # 暗槓後
-            base_id = self.last_tsumo.id - self.last_tsumo.id % 4
-            tehai2 = self.tehai[who] - HaiGroup.from_list([base_id, base_id + 1, base_id + 2, base_id + 3])
-            shanten2 = ShantenCalculator(tehai2)
-
-            if not (shanten1.shanten == shanten2.shanten == 0):
-                return
-            if shanten1.yuukouhai != shanten2.yuukouhai:
-                return
-
-            if next_elem == "N":
-                huuro = HuuroParser.from_haihu(int(next_attr["m"]))
-                if isinstance(huuro, Ankan):
-                    self.output(who, 1)
-            else:
-                self.output(who, 0)
-
-        # 非リーチ中
-        else:
-            for i in range(34):
-                if self.tehai[who].to_counter34()[i] != 4:
-                    continue
-
-                if next_elem == "N":
-                    huuro = HuuroParser.from_haihu(int(next_attr["m"]))
-                    if isinstance(huuro, Ankan):
-                        self.output(who, 1)
-                else:
-                    self.output(who, 0)
-
-    def sample_ronho_daiminkan_pon_chii(self) -> None:
-        next_elem, next_attr = self.tags[self.tag_i + 1]
-        for who in range(4):
-            if who == self.last_teban:
+            # ドラ
+            elif elem == "DORA":
                 continue
 
-            # 何もしない -> 0, ロン -> 1, 明槓 -> 2, ポン -> 3, 左牌をチー -> 4, 中央牌をチー -> 5, 右牌をチー -> 6
-            y = 0
-            if next_elem == "AGARI":
-                # ダブロン、トリロンの可能性があるので全てのAGARIタグを見る
-                for elem, attr in self.tags[self.tag_i + 1 :]:
-                    if elem != "AGARI":
-                        break
-                    if int(attr["who"]) == who:
-                        y = 1
-            elif next_elem == "N" and int(next_attr["who"]) == who:
-                huuro = HuuroParser.from_haihu(int(next_attr["m"]))
-                if isinstance(huuro, Daiminkan):
-                    y = 2
-                elif isinstance(huuro, Pon):
-                    y = 3
-                elif isinstance(huuro, Chii):
-                    if huuro.stolen == huuro.hais[0]:
-                        y = 4
-                    elif huuro.stolen == huuro.hais[1]:
-                        y = 5
-                    elif huuro.stolen == huuro.hais[2]:
-                        y = 6
+            # 和了
+            elif elem == "AGARI":
+                self.parse_agari_tag(attr)
 
-            self.output(who, y)
+            # 流局
+            elif elem == "RYUUKYOKU":
+                self.parse_ryuukyoku_tag(attr)
 
-    def debug_print(self, *values: object, end: str | None = "\n") -> None:
+            if self.count >= self.max_count:
+                return
+
+    def parse_mjloggm(self) -> None:
+        self.game = Game()
+        self.game.add_player(Player("1"))
+        self.game.add_player(Player("2"))
+        self.game.add_player(Player("3"))
+        self.game.add_player(Player("4"))
+
+    def parse_shuffle_tag(self, attr: dict[str, str]) -> None:
+        seed = attr["seed"].split(",")[1]
+        yama_generator = YamaGenerator(seed)
+
+        # Yamaのshuffleメソッドをモックする
+        self.game.yama.shuffle = lambda: [Hai(id) for id in yama_generator.generate()]  # type: ignore[method-assign]
+
+    # TODO: 将来的にはparse_go_tagというメソッド名に変更したい。
+    # TODO: 将来的にはRuleクラスを実装して、GOタグの中身も解析するようにしたい。
+    def is_valid_rule(self, attr: dict[str, str]) -> bool:
+        _type = int(attr["type"])
+
+        # 東風戦
+        if (_type & 0x08) == 0:
+            return False
+
+        return True
+
+    def parse_init_tag(self, attr: dict[str, str]) -> None:
+        self.ts += 1
+
+        self.wait_prev_state("init_kyoku")
+
+        # 手牌チェック
+        juntehai1 = sorted([int(hai) for hai in attr["hai0"].split(",")])
+        juntehai2 = sorted([int(hai) for hai in attr["hai1"].split(",")])
+        juntehai3 = sorted([int(hai) for hai in attr["hai2"].split(",")])
+        juntehai4 = sorted([int(hai) for hai in attr["hai3"].split(",")])
+        assert self.game.players[0].juntehai.to_list() == juntehai1, (
+            self.game.players[0].juntehai.to_code(),
+            HaiGroup.from_list(juntehai1).to_code(),
+        )
+        assert self.game.players[1].juntehai.to_list() == juntehai2
+        assert self.game.players[2].juntehai.to_list() == juntehai3
+        assert self.game.players[3].juntehai.to_list() == juntehai4
+
+        # 局数、本場、供託、ドラ表示牌チェック
+        kyoku, honba, kyoutaku, _, _, dora_hyouji_hai = map(int, attr["seed"].split(","))
+        assert self.game.kyoku == kyoku
+        assert self.game.honba == honba, (self.game.honba, honba)
+        assert self.game.kyoutaku == kyoutaku
+        assert self.game.yama.opened_dora_hyouji_hais[0].id == dora_hyouji_hai
+
+        # 点数チェック
+        ten = [int(t) * 100 for t in attr["ten"].split(",")]
+        assert [player.ten for player in self.game.players] == ten, ([player.ten for player in self.game.players], ten)
+
+    def parse_tsumo_tag(self, elem: str) -> None:
+        idx = {"T": 0, "U": 1, "V": 2, "W": 3}
+        who = idx[elem[0]]
+        hai = Hai(int(elem[1:]))
+
+        teban_player = self.game.players[who]
+
+        self.wait_prev_state(["tsumo", "rinshan_tsumo"])
+
+        if self.mode == Mode.RIICHI and not teban_player.is_riichi_completed:
+            next_elem, _ = self.get_next_tag()
+            self.output(who, int(next_elem == "REACH"))
+
+        assert teban_player.last_tsumo == hai
+
+    def parse_dahai_tag(self, elem: str) -> None:
+        idx = {"D": 0, "E": 1, "F": 2, "G": 3}
+        who = idx[elem[0]]
+        hai = Hai(int(elem[1:]))
+
+        self.wait_state("wait_teban_action")
+
+        teban_player = self.game.players[who]
+
+        # 打牌の抽出(リーチ時以外)
+        if self.mode == Mode.DAHAI and not teban_player.is_riichi_completed:
+            self.output(who, hai.id // 4)
+
+        # 打牌の処理
+        self.game.teban_action_resolver.register_dahai(teban_player, Dahai(hai))
+
+        # 打牌の次に来る最初の副露か和了か流局を検出
+        for next_elem, next_attr in self.tags[self.tag_i + 1 :]:
+            # 副露か和了が来るならそのまま副露か和了をする
+            if next_elem in ["N", "AGARI"]:
+                break
+            # 三家和了がくるならロンを3つ登録する
+            elif next_elem == "RYUUKYOKU" and "type" in next_attr and next_attr["type"] == "ron3":
+                self.wait_state("wait_non_teban_action")
+                for player in self.game.players:
+                    if not player.is_teban:
+                        self.game.non_teban_action_resolver.register_ronho(player, Ronho())
+                break
+            # ツモか流局が来るならスキップを登録する
+            elif re.match(r"[T|U|V|W][0-9]+", next_elem) or next_elem == "RYUUKYOKU":
+                self.wait_state("wait_non_teban_action")
+                for player in self.game.players:
+                    if not player.is_teban:
+                        self.game.non_teban_action_resolver.register_skip(player, Skip())
+                break
+
+        self.next_step()
+
+    def parse_huuro_tag(self, attr: dict[str, str]) -> None:
+        who = int(attr["who"])
+        m = int(attr["m"])
+
+        me = self.game.players[who]
+        huuro = HuuroParser.from_haihu(m)
+
+        match huuro:
+            case Chii():
+                self.wait_state("wait_non_teban_action")
+                self.game.non_teban_action_resolver.register_chii(me, huuro)
+                for player in self.game.players:
+                    if player != me:
+                        self.game.non_teban_action_resolver.register_skip(player, Skip())
+                self.next_step()
+
+            case Pon():
+                self.wait_state("wait_non_teban_action")
+                self.game.non_teban_action_resolver.register_pon(me, huuro)
+                for player in self.game.players:
+                    if player != me:
+                        self.game.non_teban_action_resolver.register_skip(player, Skip())
+                self.next_step()
+
+            case Kakan():
+                self.wait_state("wait_teban_action")
+                self.game.teban_action_resolver.register_kakan(me, huuro)
+                next_elem, _ = self.get_next_tag()
+                # 槍槓じゃなかったらスキップを登録する
+                if next_elem != "AGARI":
+                    self.wait_state("wait_chankan_action")
+                    for player in self.game.players:
+                        if not player.is_teban:
+                            self.game.chankan_action_resolver.register_skip(player, Skip())
+                self.next_step()
+
+            case Daiminkan():
+                self.wait_state("wait_non_teban_action")
+                self.game.non_teban_action_resolver.register_daiminkan(me, huuro)
+                for player in self.game.players:
+                    if player != me:
+                        self.game.non_teban_action_resolver.register_skip(player, Skip())
+                self.next_step()
+
+            case Ankan():
+                self.wait_state("wait_teban_action")
+                self.game.teban_action_resolver.register_ankan(me, huuro)
+                self.next_step()
+
+    def parse_riichi_tag(self, attr: dict[str, str]) -> None:
+        who = int(attr["who"])
+        step = int(attr["step"])
+
+        # リーチ宣言
+        if step == 1:
+            self.wait_state("wait_teban_action")
+            me = self.game.players[who]
+            resolver = self.game.teban_action_resolver
+            resolver.register_riichi(me, Riichi())
+            self.next_step()
+
+        # リーチ成立
+        elif step == 2:
+            return
+
+    def parse_agari_tag(self, attr: dict[str, str]) -> None:
+        who = int(attr["who"])
+        from_who = int(attr["fromWho"])
+
+        me = self.game.players[who]
+
+        if who == from_who:
+            self.wait_state("wait_teban_action")
+            self.game.teban_action_resolver.register_tsumoho(me, Tsumoho())
+            self.next_step()
+        else:
+            self.wait_state(["wait_non_teban_action", "wait_chankan_action"])
+            if self.game.state == "wait_non_teban_action":
+                self.game.non_teban_action_resolver.register_ronho(me, Ronho())
+            elif self.game.state == "wait_chankan_action":
+                self.game.chankan_action_resolver.register_ronho(me, Ronho())
+
+            # 最後の和了の場合は未登録のプレイヤーにスキップを登録する
+            next_elem, _ = self.get_next_tag()
+            if next_elem != "AGARI":
+                for player in self.game.players:
+                    if self.game.non_teban_action_resolver.choice[player.id] is None:
+                        self.game.non_teban_action_resolver.register_skip(player, Skip())
+                self.next_step()
+            # まだ和了が続く場合は次のAGARIタグをパースする
+            else:
+                return
+
+        if "owari" in attr:
+            owari = attr["owari"]
+
+            self.wait_state("syuukyoku")
+
+            ten = [int(t) * 100 for t in owari.split(",")[::2]]
+            assert [player.ten for player in self.game.players] == ten, (
+                [player.ten for player in self.game.players],
+                ten,
+            )
+
+    def parse_ryuukyoku_tag(self, attr: dict[str, str]) -> None:
+        _type = attr.get("type", "none")
+
+        if _type == "yao9":
+            self.wait_state("wait_teban_action")
+            self.game.teban_action_resolver.register_kyuushu_kyuuhai(self.game.teban_player, KyuushuKyuuhai())
+
+        self.wait_prev_state(
+            [
+                "ryuukyoku",
+                "nagashi_mangan",
+                "kyuushu_kyuuhai",
+                "yoncha_riichi",
+                "suuhuu_renda",
+                "suukan_sanryou",
+                "sancha_houra",
+            ]
+        )
+
+        if "owari" in attr:
+            owari = attr["owari"]
+
+            self.wait_state("syuukyoku")
+            self.next_step()
+
+            ten = [int(t) * 100 for t in owari.split(",")[::2]]
+            assert [player.ten for player in self.game.players] == ten, (
+                [player.ten for player in self.game.players],
+                ten,
+            )
+
+    def wait_state(self, states: State | list[State]) -> None:
+        if isinstance(states, list):
+            while self.game.state not in states:
+                self.next_step()
+        else:
+            while self.game.state != states:
+                self.next_step()
+
+    def wait_prev_state(self, states: State | list[State]) -> None:
+        if isinstance(states, list):
+            while self.game.prev_state not in states:
+                self.next_step()
+        else:
+            while self.game.prev_state != states:
+                self.next_step()
+
+    def next_step(self) -> None:
+        self.game.step()
+
+    def output(self, who: int, t: int) -> None:
+        # 既に十分な数のデータが集まっている場合は何もしない
+        if self.count >= self.max_count:
+            return
+
+        plane_builder = PlaneBuilder(self.game, self.game.players[who], self.debug)
+        planes = plane_builder.build()
+
+        self.debug_print(self.url)
+
+        # デバッグ時は入力を待つ
         if self.debug:
-            print(*values, end=end)
+            input()
 
-    def debug_planes(self, planes: list[list[int]], n_unit: int) -> None:
-        for i, plane in enumerate(planes):
-            self.debug_print(i, HaiGroup.from_counter34(plane).to_code())
-            if i % n_unit == n_unit - 1:
-                if i == len(planes) - 1:
-                    self.debug_print("")
-                else:
-                    self.debug_print("============")
+        # xとtの形式は初回のplanesが返ってきて初めて判明する
+        if self.x is None or self.t is None:
+            self.x = torch.empty((self.max_count, *planes.shape), dtype=torch.float32)
+            self.t = torch.empty((self.max_count,), dtype=torch.long)
 
-    def to_planes(self, counter: list[int], depth: int) -> list[list[int]]:
-        planes = [[0] * 34 for _ in range(depth)]
-        for i in range(34):
-            for j in range(counter[i]):
-                planes[j][i] = 1
-        return planes
+        self.x[self.count] = planes
+        self.t[self.count] = t
 
-    def flatten(self, planes: list[list[int]]) -> list[int]:
-        return sum(planes, [])
+        self.count += 1
+        self.progress_bar.update(1)
 
-    def jun_tehai_to_plane(self, who: int) -> list[list[int]]:
-        # 全員の手牌(4planes * 4players)
-        planes: list[list[int]] = []
-        for i in range(4):
-            if i == who:
-                counter = self.tehai[i].to_counter34()
-                planes.extend(self.to_planes(counter, 4))
-            else:
-                planes.extend([[0] * 34 for _ in range(4)])
-
-        self.debug_print("純手牌")
-        self.debug_planes(planes, 4)
-        return planes
-
-    def jun_tehai_aka_to_plane(self, who: int) -> list[list[int]]:
-        # 全員の純手牌・赤牌(1plane * 4players)
-        planes: list[list[int]] = []
-        for i in range(4):
-            if i == who:
-                counter = [0] * 34
-                for hai in self.tehai[who].hais:
-                    if hai.color == "r":
-                        counter[hai.id // 4] += 1
-                planes.append(counter)
-            else:
-                planes.append([0] * 34)
-
-        self.debug_print("純手牌・赤牌")
-        self.debug_planes(planes, 1)
-        return planes
-
-    def huuro_to_plane(self) -> list[list[int]]:
-        # 全員の副露(16planes * 4players)
-        planes: list[list[int]] = []
-        for i in range(4):
-            for j in range(4):
-                if j < len(self.huuro[i]):
-                    counter = self.huuro[i][j].hais.to_counter34()
-                    planes.extend(self.to_planes(counter, 4))
-                else:
-                    planes.extend([[0] * 34 for _ in range(4)])
-
-        self.debug_print("副露")
-        self.debug_planes(planes, 16)
-        return planes
-
-    def huuro_aka_to_plane(self) -> list[list[int]]:
-        # 全員の副露・赤牌(1plane * 4players)
-        planes: list[list[int]] = []
-        for i in range(4):
-            counter = [0] * 34
-            for huuro in self.huuro[i]:
-                for hai in huuro.hais:
-                    if hai.color == "r":
-                        counter[hai.id // 4] += 1
-            planes.append(counter)
-
-        self.debug_print("副露・赤牌")
-        self.debug_planes(planes, 1)
-        return planes
-
-    def kawa_to_plane(self) -> list[list[int]]:
-        # 全員の河(20planes * 4players)
-        planes: list[list[int]] = []
-        for i in range(4):
-            for j in range(20):
-                if j < len(self.kawa[i]):
-                    planes.append(HaiGroup([self.kawa[i][j]]).to_counter34())
-                else:
-                    planes.append([0] * 34)
-
-        self.debug_print("河")
-        self.debug_planes(planes, 20)
-        return planes
-
-    def kawa_aka_to_plane(self) -> list[list[int]]:
-        # 全員の河の赤牌(1plane * 4players)
-        planes: list[list[int]] = []
-        for i in range(4):
-            counter = [0] * 34
-            for hai in self.kawa[i]:
-                if hai.color == "r":
-                    counter[hai.id // 4] += 1
-            planes.append(counter)
-
-        self.debug_print("河・赤牌")
-        self.debug_planes(planes, 1)
-        return planes
-
-    def last_dahai_to_plane(self) -> list[list[int]]:
-        # 全員の最終打牌(1plane * 4players)
-        planes: list[list[int]] = []
-        for i in range(4):
-            if self.last_dahai is not None and self.last_teban is not None and i == self.last_teban:
-                planes.append(HaiGroup([self.last_dahai]).to_counter34())
-            else:
-                planes.append([0] * 34)
-
-        self.debug_print("最終打牌")
-        self.debug_planes(planes, 1)
-        return planes
-
-    def riichi_to_plane(self) -> list[list[int]]:
-        # リーチ(4planes)
-        planes: list[list[int]] = []
-        for i in range(4):
-            planes.append([1] * 34 if self.riichi[i] else [0] * 34)
-
-        self.debug_print("リーチ")
-        self.debug_planes(planes, 1)
-        return planes
-
-    def dora_to_plane(self) -> list[list[int]]:
-        # ドラ(4planes)
-        planes = self.to_planes(HaiGroup(self.dora).to_counter34(), 4)
-
-        self.debug_print("ドラ")
-        self.debug_planes(planes, 4)
-        return planes
-
-    def bakaze_to_plane(self) -> list[list[int]]:
-        # 場風(4planes)
-        planes: list[list[int]] = []
-        for i in range(4):
-            planes.append([1] * 34 if i == self.kyoku // 4 else [0] * 34)
-
-        self.debug_print("場風")
-        self.debug_planes(planes, 4)
-        return planes
-
-    def kyoku_to_plane(self) -> list[list[int]]:
-        # 局数(4planes)
-        planes: list[list[int]] = []
-        for i in range(4):
-            planes.append([1] * 34 if i == self.kyoku % 4 else [0] * 34)
-
-        self.debug_print("局")
-        self.debug_planes(planes, 4)
-        return planes
-
-    def ten_to_plane(self) -> list[list[int]]:
-        # 点数(30planes * 4players)
-        planes: list[list[int]] = []
-        for i in range(4):
-            man = min(self.ten[i] // 100, 9)
-            sen = self.ten[i] % 100 // 10
-            hyaku = self.ten[i] % 10
-            for j in range(10):
-                planes.append([1] * 34 if j == man else [0] * 34)
-            for j in range(10):
-                planes.append([1] * 34 if j == sen else [0] * 34)
-            for j in range(10):
-                planes.append([1] * 34 if j == hyaku else [0] * 34)
-
-        self.debug_print("点数")
-        self.debug_planes(planes, 30)
-        return planes
-
-    def position_to_plane(self, who: int) -> list[list[int]]:
-        # 場所(4planes)
-        planes: list[list[int]] = []
-        for i in range(4):
-            planes.append([1] * 34 if i == who else [0] * 34)
-
-        self.debug_print("場所")
-        self.debug_planes(planes, 4)
-        return planes
+    @property
+    def url(self) -> str:
+        return f"https://tenhou.net/0/?log={self.haihu_id}&ts={self.ts}"
 
     @property
     def output_haihu_id(self) -> str:
@@ -429,129 +427,12 @@ class HaihuParser:
 
         raise ValueError("Invalid Mode")
 
-    def output(self, who: int, t: int) -> None:
-        self.debug_print(self.url())
+    def get_next_tag(self) -> tuple[str, dict[str, str]]:
+        if self.tag_i + 1 < len(self.tags):
+            return self.tags[self.tag_i + 1]
+        else:
+            return ("NONE", {})
 
-        planes: list[list[int]] = []
-
-        planes += self.jun_tehai_to_plane(who)
-        planes += self.jun_tehai_aka_to_plane(who)
-        planes += self.huuro_to_plane()
-        planes += self.huuro_aka_to_plane()
-        planes += self.kawa_to_plane()
-        planes += self.kawa_aka_to_plane()
-        planes += self.last_dahai_to_plane()
-        planes += self.riichi_to_plane()
-        planes += self.dora_to_plane()
-        planes += self.bakaze_to_plane()
-        planes += self.kyoku_to_plane()
-        planes += self.ten_to_plane()
-        planes += self.position_to_plane(who)
-
-        # デバッグ時は入力を待つ
+    def debug_print(self, *values: object, end: str | None = "\n") -> None:
         if self.debug:
-            input()
-
-        self.x.append(planes)
-        self.t.append(t)
-
-        self.count += 1
-        self.progress_bar.update(1)
-
-    def parse_init_tag(self, attr: dict[str, str]) -> None:
-        self.ts += 1
-
-        self.tehai = [HaiGroup([]) for _ in range(4)]
-        self.kawa = [[] for _ in range(4)]
-        self.huuro = [[] for _ in range(4)]
-        self.dora = []
-        self.riichi = [False] * 4
-        self.kyoku = 0
-        self.ten = [0] * 4
-
-        # 配牌をパース
-        for who in range(4):
-            for hai in map(int, attr[f"hai{who}"].split(",")):
-                self.tehai[who] += Hai(hai)
-
-        # 局数、本場、供託、ドラをパース
-        kyoku, honba, kyotaku, _, _, dora = map(int, attr["seed"].split(","))
-        self.kyoku = kyoku
-        self.dora.append(Hai(dora))
-
-        # 点棒状況をパース
-        for who, ten in enumerate(map(int, attr["ten"].split(","))):
-            self.ten[who] = ten
-
-        self.last_teban = None
-        self.last_dahai = None
-        self.last_tsumo = None
-
-    def parse_tsumo_tag(self, elem: str) -> None:
-        idx = {"T": 0, "U": 1, "V": 2, "W": 3}
-        who = idx[elem[0]]
-        hai = Hai(int(elem[1:]))
-
-        self.tehai[who] += hai
-        self.last_tsumo = hai
-
-        # リーチの抽出
-        if self.mode == Mode.RIICHI:
-            self.sample_riichi(who)
-
-        # 暗槓の抽出
-        if self.mode == Mode.ANKAN:
-            self.sample_ankan(who)
-
-    def parse_dahai_tag(self, elem: str) -> None:
-        idx = {"D": 0, "E": 1, "F": 2, "G": 3}
-        who = idx[elem[0]]
-        hai = Hai(int(elem[1:]))
-
-        # 打牌の抽出
-        if self.mode == Mode.DAHAI and not self.riichi[who]:
-            self.output(who, hai.id // 4)
-
-        # 打牌の処理
-        self.kawa[who].append(hai)
-        self.tehai[who] -= hai
-        self.last_dahai = hai
-        self.last_teban = who
-
-        # ロン、ミンカン、ポン、チーの抽出
-        if self.mode == Mode.RONHO_DAMINKAN_PON_CHII:
-            self.sample_ronho_daiminkan_pon_chii()
-
-    def parse_huuro_tag(self, attr: dict[str, str]) -> None:
-        who = int(attr["who"])
-        m = int(attr["m"])
-        huuro = HuuroParser.from_haihu(m)
-
-        match huuro:
-            case Chii():
-                self.tehai[who] -= huuro.hais - huuro.stolen
-                self.huuro[who].append(huuro)
-
-            case Pon():
-                self.tehai[who] -= huuro.hais - huuro.stolen
-                self.huuro[who].append(huuro)
-
-            case Kakan():
-                for i, h in enumerate(self.huuro[who]):
-                    if (
-                        isinstance(h, Pon)
-                        and h.hais[0].suit == huuro.hais[0].suit
-                        and h.hais[0].number == huuro.hais[0].number
-                    ):
-                        new_huuro = h.to_kakan()
-                        self.huuro[who][i] = new_huuro
-                        self.tehai[who] -= new_huuro.added
-                        break
-
-            case Daiminkan():
-                self.tehai[who] -= huuro.hais - huuro.stolen
-                self.huuro[who].append(huuro)
-
-            case Ankan():
-                self.tehai[who] -= huuro.hais
-                self.huuro[who].append(huuro)
+            print(*values, end=end)
