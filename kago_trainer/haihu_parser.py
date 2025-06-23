@@ -387,10 +387,12 @@ class HaihuParser:
         if self.count >= self.max_count:
             return
 
-        plane_builder = PlaneBuilder(self.game, self.game.players[who], self.debug)
+        self.debug_print(self.url)
+
+        plane_builder = PlaneBuilder(self.mode, self.game, self.game.players[who], self.debug)
         planes = plane_builder.build()
 
-        self.debug_print(self.url)
+        self.debug_print(f"t: {t}")
 
         # デバッグ時は入力を待つ
         if self.debug:

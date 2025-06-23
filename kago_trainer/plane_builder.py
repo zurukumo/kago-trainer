@@ -53,6 +53,9 @@ class PlaneBuilder:
             else:
                 planes.extend([[0] * 34 for _ in range(4)])
 
+        self.debug_print("juntehai_to_plane")
+        self.debug_planes(planes, 4)
+
         return planes
 
     def juntehai_aka_to_plane(self) -> list[list[int]]:
@@ -68,6 +71,9 @@ class PlaneBuilder:
             else:
                 planes.append([0] * 34)
 
+        self.debug_print("juntehai_aka_to_plane")
+        self.debug_planes(planes, 4)
+
         return planes
 
     def huuro_to_plane(self) -> list[list[int]]:
@@ -80,6 +86,9 @@ class PlaneBuilder:
                     planes.extend(self.to_planes(counter, 4))
                 else:
                     planes.extend([[0] * 34 for _ in range(4)])
+
+        self.debug_print("huuro_to_plane")
+        self.debug_planes(planes, 4)
 
         return planes
 
@@ -94,6 +103,9 @@ class PlaneBuilder:
                         counter[hai.id // 4] += 1
             planes.append(counter)
 
+        self.debug_print("huuro_aka_to_plane")
+        self.debug_planes(planes, 4)
+
         return planes
 
     def kawa_to_plane(self) -> list[list[int]]:
@@ -105,6 +117,9 @@ class PlaneBuilder:
                     planes.append(HaiGroup([player.kawa[i]]).to_counter34())
                 else:
                     planes.append([0] * 34)
+
+        self.debug_print("kawa_to_plane")
+        self.debug_planes(planes, 20)
 
         return planes
 
@@ -118,6 +133,9 @@ class PlaneBuilder:
                     counter[hai.id // 4] += 1
             planes.append(counter)
 
+        self.debug_print("kawa_aka_to_plane")
+        self.debug_planes(planes, 4)
+
         return planes
 
     def last_dahai_to_plane(self) -> list[list[int]]:
@@ -129,6 +147,9 @@ class PlaneBuilder:
             else:
                 planes.append([0] * 34)
 
+        self.debug_print("last_dahai_to_plane")
+        self.debug_planes(planes, 4)
+
         return planes
 
     def riichi_to_plane(self) -> list[list[int]]:
@@ -137,12 +158,15 @@ class PlaneBuilder:
         for player in self.game.players:
             planes.append([1] * 34 if player.is_riichi_completed else [0] * 34)
 
+        self.debug_print("riichi_to_plane")
+        self.debug_planes(planes, 4)
+
         return planes
 
     def dora_to_plane(self) -> list[list[int]]:
-        # ドラ(4planes * 4)
+        # ドラ(1planes * 4)
         planes = []
-        for hai in self.game.yama.dora_hyouji_hais:
+        for hai in self.game.yama.opened_dora_hyouji_hais:
             if hai.code in ["9m", "9p", "9s"]:
                 dora = Hai(hai.id - 32)
             elif hai.code == "4z":
@@ -153,6 +177,12 @@ class PlaneBuilder:
                 dora = Hai(hai.id + 4)
             planes.append(HaiGroup([dora]).to_counter34())
 
+        while len(planes) < 4:
+            planes.append([0] * 34)
+
+        self.debug_print("dora_to_plane")
+        self.debug_planes(planes, 1)
+
         return planes
 
     def bakaze_to_plane(self) -> list[list[int]]:
@@ -160,6 +190,9 @@ class PlaneBuilder:
         planes: list[list[int]] = []
         for i in range(4):
             planes.append([1] * 34 if i == self.game.kyoku // 4 else [0] * 34)
+
+        self.debug_print("bakaze_to_plane")
+        self.debug_planes(planes, 4)
 
         return planes
 
@@ -169,21 +202,32 @@ class PlaneBuilder:
         for i in range(4):
             planes.append([1] * 34 if i == self.game.kyoku % 4 else [0] * 34)
 
+        self.debug_print("kyoku_to_plane")
+        self.debug_planes(planes, 4)
+
         return planes
 
     def ten_to_plane(self) -> list[list[int]]:
         # 点数(30planes * 4players)
         planes: list[list[int]] = []
         for player in self.game.players:
-            man = min(player.ten // 100, 9)
-            sen = player.ten % 100 // 10
-            hyaku = player.ten % 10
+            if player.ten >= 100000:
+                man = 9
+                sen = 9
+                hyaku = 9
+            else:
+                man = min(player.ten // 10000, 9)
+                sen = min((player.ten % 10000) // 1000, 9)
+                hyaku = min((player.ten % 1000) // 100, 9)
             for j in range(10):
                 planes.append([1] * 34 if j == man else [0] * 34)
             for j in range(10):
                 planes.append([1] * 34 if j == sen else [0] * 34)
             for j in range(10):
                 planes.append([1] * 34 if j == hyaku else [0] * 34)
+
+        self.debug_print("ten_to_plane")
+        self.debug_planes(planes, 30)
 
         return planes
 
@@ -193,6 +237,9 @@ class PlaneBuilder:
         for player in self.game.players:
             planes.append([1] * 34 if player == self.player else [0] * 34)
 
+        self.debug_print("position_to_plane")
+        self.debug_planes(planes, 4)
+
         return planes
 
     def debug_print(self, *values: object, end: str | None = "\n") -> None:
@@ -201,7 +248,7 @@ class PlaneBuilder:
 
     def debug_planes(self, planes: list[list[int]], n_unit: int) -> None:
         for i, plane in enumerate(planes):
-            self.debug_print(i, HaiGroup.from_counter34(plane).to_code())
+            self.debug_print(i, HaiGroup.from_counter34(plane).to_code().replace("0", "5"))
             if i % n_unit == n_unit - 1:
                 if i == len(planes) - 1:
                     self.debug_print("")
