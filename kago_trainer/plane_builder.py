@@ -4,15 +4,19 @@ from kago_utils.hai import Hai
 from kago_utils.hai_group import HaiGroup
 from kago_utils.player import Player
 
+from kago_trainer.mode import Mode
+
 
 class PlaneBuilder:
+    mode: Mode
     game: Game
     player: Player
     debug: bool
 
-    __slots__ = ("game", "player", "debug")
+    __slots__ = ("mode", "game", "player", "debug")
 
-    def __init__(self, game: Game, player: Player, debug: bool = False) -> None:
+    def __init__(self, mode: Mode, game: Game, player: Player, debug: bool = False) -> None:
+        self.mode = mode
         self.game = game
         self.player = player
         self.debug = debug
@@ -26,7 +30,8 @@ class PlaneBuilder:
         planes += self.huuro_aka_to_plane()
         planes += self.kawa_to_plane()
         planes += self.kawa_aka_to_plane()
-        planes += self.last_dahai_to_plane()
+        if self.mode == Mode.RONHO_DAMINKAN_PON_CHII:
+            planes += self.last_dahai_to_plane()
         planes += self.riichi_to_plane()
         planes += self.dora_to_plane()
         planes += self.bakaze_to_plane()

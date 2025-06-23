@@ -7,6 +7,7 @@ from kago_utils.bot import Bot
 from kago_utils.game import Game
 from kago_utils.visualizer import Visualizer
 
+from kago_trainer.mode import Mode
 from kago_trainer.models import MyModel
 from kago_trainer.plane_builder import PlaneBuilder
 
@@ -59,7 +60,7 @@ class CustomBot(Bot):
     def select_dahai(self, candidates: list[Dahai]) -> Dahai:
         assert CustomBot.dahai_model is not None
 
-        input = PlaneBuilder(self.game, self, debug=False).build()
+        input = PlaneBuilder(Mode.DAHAI, self.game, self, debug=False).build()
         output = CustomBot.dahai_model(input)
         choice = max(candidates, key=lambda c: output[c.hai.id // 4].item())
         return choice
@@ -67,7 +68,7 @@ class CustomBot(Bot):
     def select_riichi(self) -> bool:
         assert CustomBot.riichi_model is not None
 
-        input = PlaneBuilder(self.game, self, debug=False).build()
+        input = PlaneBuilder(Mode.RIICHI, self.game, self, debug=False).build()
         output = CustomBot.riichi_model(input)
         return bool(output[0].item() > output[1].item())
 
