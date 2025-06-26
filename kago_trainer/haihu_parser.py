@@ -400,11 +400,10 @@ class HaihuParser:
             return
 
         self.debug_print(self.url)
+        self.debug_print(f"t: {t}")
 
         plane_builder = PlaneBuilder(self.mode, self.game, self.game.players[who], self.debug)
         planes = plane_builder.build()
-
-        self.debug_print(f"t: {t}")
 
         # デバッグ時は入力を待つ
         if self.debug:
@@ -427,19 +426,7 @@ class HaihuParser:
 
     @property
     def output_haihu_id(self) -> str:
-        match self.mode:
-            case Mode.DAHAI:
-                return "dahai"
-            case Mode.RIICHI:
-                return "riichi"
-            case Mode.ANKAN:
-                return "ankan"
-            case Mode.KAKAN:
-                return "kakan"
-            case Mode.RONHO_DAMINKAN_PON_CHII:
-                return "ronho_daiminkan_pon_chii"
-
-        raise ValueError("Invalid Mode")
+        return self.mode.value
 
     def get_next_tag(self) -> tuple[str, dict[str, str]]:
         if self.tag_i + 1 < len(self.tags):
