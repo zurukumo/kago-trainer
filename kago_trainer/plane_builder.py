@@ -30,7 +30,7 @@ class PlaneBuilder:
         planes += self.huuro_aka_to_plane()
         planes += self.kawa_to_plane()
         planes += self.kawa_aka_to_plane()
-        if self.mode == Mode.RONHO_DAMINKAN_PON_CHII:
+        if self.mode in [Mode.PON, Mode.CHII]:
             planes += self.last_dahai_to_plane()
         planes += self.riichi_to_plane()
         planes += self.dora_to_plane()

@@ -380,6 +380,18 @@ class HaihuParser:
                 self.next_step()
 
     def next_step(self) -> None:
+        if self.mode == Mode.PON and self.game.state == "wait_non_teban_action":
+            resolver = self.game.non_teban_action_resolver
+            for player in self.game.players:
+                if len(resolver.pon_candidates[player.id]) > 0:
+                    self.output(player.zaseki, int(isinstance(resolver.choice[player.id], Pon)))
+
+        elif self.mode == Mode.CHII and self.game.state == "wait_non_teban_action":
+            resolver = self.game.non_teban_action_resolver
+            for player in self.game.players:
+                if len(resolver.chii_candidates[player.id]) > 0:
+                    self.output(player.zaseki, int(isinstance(resolver.choice[player.id], Chii)))
+
         self.game.step()
 
     def output(self, who: int, t: int) -> None:
