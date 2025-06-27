@@ -128,6 +128,8 @@ class HaihuTrainer:
                 return 2
             case Mode.ANKAN:
                 return 34
+            case Mode.PON:
+                return 2
             case Mode.RONHO_DAMINKAN_PON_CHII:
                 return 7
             case _:
